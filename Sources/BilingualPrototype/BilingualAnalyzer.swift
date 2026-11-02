@@ -67,3 +67,20 @@ struct BilingualAnalyzer {
             || s.range(of: #"^[^\s@]+@[^\s@]+\.[^\s@]+$"#, options: .regularExpression) != nil
     }
 }
+
+extension BilingualAnalyzer {
+    /// "su3cl3hello" -> ("su3cl3", "hello"): complete Zhuyin ending in an explicit tone
+    /// key, followed by a lexicon word. Returns the split with the longest English tail.
+    func splitTrailingEnglish(_ body: String) -> (head: String, tail: String)? {
+        let chars = Array(body)
+        for i in 1..<max(chars.count, 1) {
+            guard "3467".contains(chars[i - 1]) else { continue }
+            let tail = String(chars[i...])
+            guard tail.count >= 2, tail.allSatisfy({ $0.isASCII && $0.isLowercase }),
+                  lexicon.contains(tail) else { continue }
+            let head = String(chars[..<i])
+            if zhuyin.parse(head) == .complete { return (head, tail) }
+        }
+        return nil
+    }
+}

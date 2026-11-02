@@ -8,7 +8,7 @@ xcodebuild -project "$ROOT/.build/McBopomofo/McBopomofo.xcodeproj" \
 mkdir -p "$ROOT/.build/products"
 rm -rf "$ROOT/.build/products/ZhuyinLM.app"
 ditto "$ROOT/.build/DerivedData/Build/Products/Debug/McBopomofo.app" "$ROOT/.build/products/ZhuyinLM.app"
-# Data for the read-only bilingual observer (see Sources/BilingualShadow).
+# Data for the bilingual input router (see Sources/BilingualInput).
 cp "$ROOT/data/english-words.txt" "$ROOT/data/chinese-lexicon.tsv" "$ROOT/.build/products/ZhuyinLM.app/Contents/Resources/"
 codesign --force --deep --sign - "$ROOT/.build/products/ZhuyinLM.app"
 codesign --verify --deep --strict "$ROOT/.build/products/ZhuyinLM.app"

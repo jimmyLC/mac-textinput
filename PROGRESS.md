@@ -17,7 +17,7 @@
 ### 未完成
 
 - M1：TextEdit 以外的 App、瀏覽器、跨視窗/焦點切換、未上屏組字、切換輸入法、其他鍵位及重新啟用的實機驗收。實際輸入測試工具對既有 ZingIME 也送出字母，無法據此判斷 IME 是否正確；需要可靠的真實按鍵測試途徑或使用者協助。
-- 自動中英文混打：`Sources/BilingualPrototype/` 已有離線分析器（標準鍵位注音解析、以自建詞庫分段判斷、原始按鍵保留），可用真實詞庫跑測試（見 `docs/BILINGUAL-SPIKE.md`）；分析器已以「唯讀旁路」編進開發版（`Sources/BilingualShadow/`，只統計每個空白結尾區段被判成中文/英文/未決的次數，寫入 `~/Library/Application Support/ZhuyinLM/bilingual-shadow-counts.json`，不記錄打字內容、不改變任何輸入行為；已建置並通過既有測試，**尚未安裝或實機驗證**）。仍未控制輸出，沒有候選 UI、未決時的使用者確認流程，也不是可用的產品功能。`tests/fixtures/bilingual-cases.json` 是期望案例，尚未端到端通過。
+- 自動中英文混打：`Sources/BilingualPrototype/` 已有離線分析器（標準鍵位注音解析、以自建詞庫分段判斷、原始按鍵保留），可用真實詞庫跑測試（見 `docs/BILINGUAL-SPIKE.md`）；分析器已編進開發版並開始控制輸出（`Sources/BilingualInput/`，**尚未實機驗證**）：空白時整段判為英文 → 以原文上屏；`注音含聲調+英文詞`（如 su3cl3hello）→ 注音轉中文後接英文；大寫字母開頭 → 先上屏組字再直接輸出英文直到空白；`http:` 等網址前綴 → 英文直到空白。每次只用原始按鍵緩衝，不記錄打字內容。仍沒有：邊打邊顯示英文、英文補全、切回中文的鍵、候選 UI、未決時的使用者確認流程，也不是可用的產品功能。`tests/fixtures/bilingual-cases.json` 是期望案例，尚未端到端通過。
 - 英文詞庫來源與散布權利未定；AI reranker 尚未實作。舊設計文件含相互矛盾及未驗證內容，不可當成實作事實。
 - 已建置名稱較清楚的測試版，但目前本機已安裝版本仍顯示 `Bopomofo`；更新安裝流程尚未實作，勿覆蓋現有安裝。
 

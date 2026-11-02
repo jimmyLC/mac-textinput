@@ -43,6 +43,11 @@ struct BilingualAnalyzerTests {
         // Words that also parse as toneless Zhuyin resolve to English, as other bilingual IMEs do.
         for w in ["run ", "fun ", "sun ", "no ", "so ", "go "] { precondition(kinds(w) == [.english], w) }
         precondition(kinds("i ") == [.undecided])  // single letters stay ambiguous
+        // Trailing English after explicitly toned Zhuyin.
+        let split = analyzer.splitTrailingEnglish("su3cl3hello")
+        precondition(split?.head == "su3cl3" && split?.tail == "hello")
+        precondition(analyzer.splitTrailingEnglish("hello") == nil)
+        precondition(analyzer.splitTrailingEnglish("su3cl3") == nil)
         // Coverage on real data. English side: top words that parse as Zhuyin (false "Chinese").
         let topEnglish = words.prefix(20_000).filter { $0.count >= 3 }
         let englishAsZhuyin = topEnglish.filter { zhuyin.parse($0) == .complete }

@@ -22,12 +22,12 @@ def replace(path, old, new):
 
 SHADOW_FILES = [
     *sorted((ROOT / 'Sources' / 'BilingualPrototype').glob('*.swift')),
-    ROOT / 'Sources' / 'BilingualShadow' / 'BilingualShadow.swift',
+    ROOT / 'Sources' / 'BilingualInput' / 'BilingualInput.swift',
 ]
 
 
 def install_shadow_observer():
-    """Compile the bilingual analyzer into the app and observe key events read-only."""
+    """Compile the bilingual analyzer into the app and let it route English runs."""
     source = DEST / 'Source'
     for path in SHADOW_FILES:
         shutil.copy(path, source / path.name)
@@ -54,9 +54,9 @@ def install_shadow_observer():
     pbx.write_text(text)
     controller = source / 'InputMethodController.swift'
     replace(controller, '        keyHandler.clear()\n        keyHandler.syncWithPreferences()\n',
-            '        keyHandler.clear()\n        BilingualShadow.shared.reset()\n        keyHandler.syncWithPreferences()\n')
+            '        keyHandler.clear()\n        BilingualInput.shared.reset()\n        keyHandler.syncWithPreferences()\n')
     replace(controller, '    override func handle(_ maybeEvent: NSEvent!, client: Any!) -> Bool {\n        // nil may be passed, applefeedback://FB11472618\n        guard let event = maybeEvent else {\n            commitComposition(client)\n            return false\n        }\n',
-            '    override func handle(_ maybeEvent: NSEvent!, client: Any!) -> Bool {\n        // nil may be passed, applefeedback://FB11472618\n        guard let event = maybeEvent else {\n            commitComposition(client)\n            return false\n        }\n        BilingualShadow.shared.observe(event)\n')
+            '    override func handle(_ maybeEvent: NSEvent!, client: Any!) -> Bool {\n        // nil may be passed, applefeedback://FB11472618\n        guard let event = maybeEvent else {\n            commitComposition(client)\n            return false\n        }\n        if let handled = bilingualHandle(event, client: client) { return handled }\n')
 
 
 def main():
