@@ -1,0 +1,12 @@
+# macOS
+.DS_Store
+
+# 私人研究資料(不進版控)
+research-baseline/
+private/
+*.log
+
+# Xcode / build
+DerivedData/
+build/
+*.xcuserstate
