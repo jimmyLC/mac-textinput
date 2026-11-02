@@ -1,16 +1,10 @@
 {
-  "generatedAt": "2026-11-02T14:38:49+00:00",
+  "generatedAt": "2026-11-02T15:01:32+00:00",
   "generator": "tools/build_english_dict.py",
-  "model": "zhuyinlm-ime/english-dict v1",
+  "model": "zhuyinlm-ime/english-dict v2",
   "sources": {
-    "base-english-100000.txt": {
-      "origin": "data/sources/base-english-100000.txt",
-      "license": "third-party seed (see data/ENGLISH-DICT.md)",
-      "sha256": "fdcaec1e224846ad321fe7bd1bc93249dae7d31ecc7fca06601a5ee8d7b9cae6",
-      "words": 100000
-    },
     "tech-terms.txt": {
-      "origin": "data/sources/tech-terms.txt",
+      "origin": "tools/tech-terms.txt",
       "license": "project-authored",
       "sha256": "d38746aee31ce47c3765975cc7069dbc40f69aab5a507c9ea17773534e2cc24a",
       "words": 257
@@ -37,24 +31,24 @@
     }
   },
   "counts": {
-    "predictionTable": 103452,
+    "predictionTable": 113092,
     "core": 10000,
-    "dictionary": 412417,
+    "dictionary": 373359,
     "techTerms": 257,
     "tiers": {
-      "core": 11796,
-      "common": 51095,
-      "tech": 121,
-      "extended": 40733
-    }
+      "core": 10534,
+      "common": 102437,
+      "tech": 121
+    },
+    "droppedUnverified": 91372
   },
   "weights": {
-    "baseSpan": 0.3,
     "google": 0.25,
     "hunspell": 0.1,
     "techFloor": 2.2,
-    "unverifiedFloor": 1.1,
+    "unverifiedMin": 3.5,
     "min": 1.0,
-    "max": 9.0
+    "max": 9.0,
+    "wordfreqTop": 200000
   }
 }

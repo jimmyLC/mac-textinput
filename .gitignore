@@ -11,6 +11,6 @@ DerivedData/
 build/
 *.xcuserstate
 
-# 英文詞典建置快取與工具環境
-data/sources/cache/
+# 詞典建置快取與工具環境
+data/.cache/
 .venv-dict/

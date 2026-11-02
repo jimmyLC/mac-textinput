@@ -66,7 +66,7 @@
 |------|------|------|---------|
 | 注音解析、ReadingGrid、LM 數值核心 | github.com/openvanilla/McBopomofo 的 `Source/Engine/gramambular2`(`Formosa::Gramambular`)/ `Source/Engine/Mandarin` C++ 庫 | **MIT** | SPM 依賴,原樣沿用 |
 | 基礎輸入流/候選窗骨架 | 同上 Swift 端(`McBopomofoInputController`、`CandidateUI`) | **MIT** | fork 後修改,保留版權聲明 |
-| 注音詞庫母體 | McBopomofo 發布內 `Resources/data.txt`、`associated-phrases-v2.txt` | **MIT** | 本機解析成 `data/chinese-lexicon.tsv` 等衍生檔(見 `data/CHINESE-DICT.md`) |
+| 注音詞庫母體 | McBopomofo 發布內 `Resources/data.txt`、`associated-phrases-v2.txt` | **MIT** | 本機解析成 `data/chinese-lexicon.tsv` 等衍生檔(見 README〈詞典建置〉) |
 | LLM runtime | ml-explore/mlx-swift、huggingface/swift-transformers、huggingface/swift-jinja | MIT/Apache-2.0 | SPM 依賴 |
 | 基底模型 | mlx-community `Qwen2.5-0.5B-Instruct-4bit`(或同期更小者) | Apache-2.0(Qwen 系) | 隨 app 打包;若供微調版需個別評估 |
 | 自動更新 | Sparkle 2 | MIT | SPM 依賴 |
@@ -138,7 +138,7 @@ Deactivated
 > 中文詞庫取自 McBopomofo 官方發布(MIT)的 `data.txt`,本機解析成
 > `data/chinese-lexicon.tsv`(160,792 詞,含多讀音與 log10 分數);
 > 英文詞庫見 `data/english-words.txt`(103,452 詞,自建 Zipf 混合權重)。
-> 兩者的來源、授權、統計與重建方式分別見 `data/CHINESE-DICT.md`、`data/ENGLISH-DICT.md`。
+> 兩者的來源、授權、統計與重建方式見 README〈詞典建置〉,建置腳本為 `tools/build_chinese_dict.py`、`tools/build_english_dict.py`。
 
 ### 5.1 統計層:selection boost(先用,最重要)
 - `ChineseSelectionMemory.recordSelection(reading:value:)` → 內存 `key=(reading,value) -> count`
@@ -151,7 +151,7 @@ Deactivated
 - Shift+Enter 聯想:游標前字的注音查 continuations(prefix) → 候選出現
 
 ### 5.3 英文邊打邊預測引擎(呈 F14 實證)
-- `english-words.txt`:**本專案自建的預測詞頻表**,TSV(`word<TAB>count`),count 為**單調遞增的權重**(非真實語料次數);共 103,452 詞,另附 `english-tech-terms.txt`(257 筆技術/品牌詞,對應 `includeEngineering` 開關)。建置來源、授權、權重模型(自建 Zipf 混合權重)與分層統計見 `data/ENGLISH-DICT.md`,可用 `tools/build_english_dict.py` 完整重現。
+- `english-words.txt`:**本專案自建的預測詞頻表**,TSV(`word<TAB>count`),count 為**單調遞增的權重**(非真實語料次數);共 113,092 詞,另附 `english-tech-terms.txt`(257 筆技術/品牌詞,對應 `includeEngineering` 開關)。建置來源、授權、權重模型(Zipf + 字典驗證加權)與分層統計見 README〈詞典建置〉,可用 `tools/build_english_dict.py` 完整重現。
 - `english-usage.json`(本機記憶):`word → {updated: timestamp, score: Float}` — score 有使用累加(**使用一次 +1**)與**時間衰減**(score≈1.999x/1.99x 且 updated 隨之變動,推斷為隨時間 tick 的半衰式衰減);偏好可整體重置("Forgetting them puts the predictions back to the bundled order")。
 - `english-words-user.txt`:可用 **# 註解**、**存檔即熱載**(字串 "改完存檔後,下次組字時自動重新載入"),**總是排在內建詞庫之前**(自訂品牌/術語優先)。
 

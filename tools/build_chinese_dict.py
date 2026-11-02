@@ -44,7 +44,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
-CACHE = DATA / "sources" / "cache"
+CACHE = DATA / ".cache"
 
 MCB_RELEASE = "3.1.1"
 MCB_INSTALLER_URL = (

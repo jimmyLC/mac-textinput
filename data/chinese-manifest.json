@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T14:52:23+00:00",
+  "generatedAt": "2026-11-02T15:02:03+00:00",
   "generator": "tools/build_chinese_dict.py",
   "model": "zhuyinlm-ime/chinese-dict v1",
   "source": {
