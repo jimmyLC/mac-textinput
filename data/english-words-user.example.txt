@@ -1,0 +1,20 @@
+# data/english-words-user.example.txt — 使用者自訂英文詞範例
+
+# 格式
+#   - 一行一個自訂詞,僅小寫英文字母(a-z)
+#   - 以 # 開頭為註解,載入時忽略
+#   - 自訂詞永遠排在內建詞庫之前(F14 行為)
+#   - 存檔後下次組字自動熱載入,不需重啟
+#
+# 用途:品牌名、術語、人名、縮寫等通用詞頻表收錄不到的字
+#
+# 放置位置
+#   ~/Library/Application Support/ZhuyinLM/english-words-user.txt
+#
+# 真正生效的檔案請從本範例複製後編輯;本 repo 內的範例檔不會被引擎讀取。
+
+opencode
+zhuyinl
+ime
+mcbopomofo
+swiftpm

@@ -21,7 +21,7 @@
 | F2 | C++ 核心 = `Formosa::Mandarin`(注音解析)+ `Formosa::Gramambular`(ReadingGrid Viterbi) | nm 符號表 |
 | F3 | LLM reranker 為獨立 helper,raw socket HTTP `127.0.0.1:<port>/score` | 字串 `http://127.0.0.1:%ld/score`、`rerankerd.sockaddr_in/handleClient/sendResponse` |
 | F4 | 模型 = `mlx-community/Qwen2.5-0.5B-4bit`(265MB,4-bit Metal) | `RerankerModel/{config.json,README.md}` |
-| F5 | reranker 以 `ScoreRankedLanguageModel` 裝飾 Gramambular2 `ReadingGrid` 的 LM 接口 | mangled 符號 `...ReadingGrid24ScoreRankedLanguageModelE` |
+| F5 | reranker 以 `ScoreRankedLanguageModel` 裝飾 `Gramambular2`(`Formosa::Gramambular`)的 `ReadingGrid` LM 接口 | mangled 符號 `...ReadingGrid24ScoreRankedLanguageModelE` |
 | F6 | 主程式含防抖狀態機:`_rerankGeneration`、`_rerankBackoffUntil`、`_rerankConvergenceRounds`、oscillation memory | nm 符號 |
 | F7 | 學習系統:selection boost 寫回 LM、句子記憶、英文 Tab 預測 | `ChineseSelectionMemory.pushBoostsToLanguageModel` 等 |
 | F8 | 詞庫獨立熱更新(manifest 版本化、staged 安裝、quarantine) | `LexiconUpdater.*`、`~/Library/Application Support/ZingIME/Lexicon/*.json` |
@@ -32,7 +32,7 @@
 | F13 | 針對特定 app 的組字相容措施:**FloatingComposition** 為 per-app 選項,需使用者到選單開啟,提示文案「can drop or duplicate text while composing」,已提示清單持久化(`FloatingCompositionPromptedHosts`) | 二進位字串 |
 | F14 | 英文預測資料與互動全貌:227,921 行 TSV 詞表;usage 記憶為 `word→{updated,score}` 可重置;Tab 接受、RightArrow 可選、中文下一字僅 Tab;`bopomofoPreview` 在英文流同時預覽注音;Limit/Page 設定;自訂詞檔支援 # 註解、存檔熱載、恆排內建之前 | `english-words.txt`(227,921 行)、`english-usage.json` 欄位、nm `EnglishPredictionEngine.predict(prefix:limit:includeEngineering:)`、字串 "Chinese next-character suggestions are accepted with Tab only."、自訂詞檔頭註解 |
 
-本產品**不使用** ZingIME 的任何程式碼、資源與模型;血統來自開源 Apache-2.0 專案。
+本產品**不使用** ZingIME 的任何程式碼、資源與模型;血統來自開源 MIT 專案(McBopomofo)。
 
 ## 1. 產品定位
 
@@ -66,8 +66,9 @@
 
 | 組件 | 來源 | 授權 | 使用方式 |
 |------|------|------|---------|
-| 注音解析、ReadingGrid、LM 數值核心 | github.com/openvanilla/McBopomofo 的 `Sourcegrammbular`/`Mandarin` C++ 庫 | Apache-2.0 | SPM 依賴,原樣沿用 |
-| 基礎輸入流/候選窗骨架 | 同上 Swift 端(`McBopomofoInputController`、`CandidateUI`) | Apache-2.0 | fork 後修改,保留 NOTICE |
+| 注音解析、ReadingGrid、LM 數值核心 | github.com/openvanilla/McBopomofo 的 `Source/Engine/gramambular2`(`Formosa::Gramambular`)/ `Source/Engine/Mandarin` C++ 庫 | **MIT** | SPM 依賴,原樣沿用 |
+| 基礎輸入流/候選窗骨架 | 同上 Swift 端(`McBopomofoInputController`、`CandidateUI`) | **MIT** | fork 後修改,保留版權聲明 |
+| 注音詞庫母體 | McBopomofo 發布內 `Resources/data.txt`、`associated-phrases-v2.txt` | **MIT** | 本機解析成 `data/chinese-lexicon.tsv` 等衍生檔(見 README〈詞典建置〉) |
 | LLM runtime | ml-explore/mlx-swift、huggingface/swift-transformers、huggingface/swift-jinja | MIT/Apache-2.0 | SPM 依賴 |
 | 基底模型 | mlx-community `Qwen2.5-0.5B-Instruct-4bit`(或同期更小者) | Apache-2.0(Qwen 系) | 隨 app 打包;若供微調版需個別評估 |
 | 自動更新 | Sparkle 2 | MIT | SPM 依賴 |
@@ -135,10 +136,16 @@ Deactivated
 
 ## 5. 學習系統
 
+> **詞庫來源**:統計層的初始語料為本專案**自建**的兩套資料——
+> 中文詞庫取自 McBopomofo 官方發布(MIT)的 `data.txt`,本機解析成
+> `data/chinese-lexicon.tsv`(160,792 詞,含多讀音與 log10 分數);
+> 英文詞庫見 `data/english-words.txt`(103,452 詞,自建 Zipf 混合權重)。
+> 兩者的來源、授權、統計與重建方式見 README〈詞典建置〉,建置腳本為 `tools/build_chinese_dict.py`、`tools/build_english_dict.py`。
+
 ### 5.1 統計層:selection boost(先用,最重要)
 - `ChineseSelectionMemory.recordSelection(reading:value:)` → 內存 `key=(reading,value) -> count`
 - 四域合併(placeholder `Dictionary<String, [String: Double]>`)
-- `pushBoostsToLanguageModel()` 將 count 轉為 LM 探подscore 加成(`grammbular++ 語意`:score += log(boost/decay))
+- `pushBoostsToLanguageModel()` 將 count 轉為 LM 的 score 加成(`grammbular++ 語意`:score += log(boost/decay))
 - decay 曲線入倉:boost_t = 1 + α·e^(-t/τ),τ 預設 30 天,確保近期用字向上浮而非永久鎖定
 
 ### 5.2 句子記憶
@@ -146,7 +153,7 @@ Deactivated
 - Shift+Enter 聯想:游標前字的注音查 continuations(prefix) → 候選出現
 
 ### 5.3 英文邊打邊預測引擎(呈 F14 實證)
-- `english-words.txt`:**227,921 行 TSV(`word<TAB>count`)**,count 為詞頻(未預排序 → 排序在執行期由 count×記憶加權決定);含工程詞 tvos/ios/watchos 等同頻組(k8s/kubectl/github 為行銷主打)。本 repo 已收錄於 `data/english-words.txt`（SHA-256 `acebeca0…`），授權注意事項見 `data/DATA-NOTES.md`（散布前應改用上游/開放詞表）。
+- `english-words.txt`:**本專案自建的預測詞頻表**,TSV(`word<TAB>count`),count 為**單調遞增的權重**(非真實語料次數);共 113,092 詞,另附 `english-tech-terms.txt`(257 筆技術/品牌詞,對應 `includeEngineering` 開關)。建置來源、授權、權重模型(Zipf + 字典驗證加權)與分層統計見 README〈詞典建置〉,可用 `tools/build_english_dict.py` 完整重現。
 - `english-usage.json`(本機記憶):`word → {updated: timestamp, score: Float}` — score 有使用累加(**使用一次 +1**)與**時間衰減**(score≈1.999x/1.99x 且 updated 隨之變動,推斷為隨時間 tick 的半衰式衰減);偏好可整體重置("Forgetting them puts the predictions back to the bundled order")。
 - `english-words-user.txt`:可用 **# 註解**、**存檔即熱載**(字串 "改完存檔後,下次組字時自動重新載入"),**總是排在內建詞庫之前**(自訂品牌/術語優先)。
 
@@ -223,10 +230,10 @@ rank(word) = userFileOrder > usageScore(word, recency decay) × builtinCount(wor
 ### 6.1 進程模型
 | 項目 | 決策 |
 |------|------|
-| 生命週期 | 閒置 10s → SIGRTFN 退出;首次請求 spawn;主 app 退出時 kill |
-| � českParagraph | 比託 helper spawn 一次,adapter put "鎖" 過程埠已佔用者避免 fork-bomb |
-| 跨程序 | HTTP/1.0 over 127.0.0.1,單 reqويلährung中部記 full-batch |
-| 併發 | 單 worker 併發;新請求抵達未完 → Cancel + 企increment集重執行 |
+| 生命週期 | 閒置 10s → SIGTERM 退出;首次請求 spawn;主 app 退出時 kill |
+| 單一實例 | helper 只 spawn 一次;adapter 以鎖與埠佔用檢查避免 fork-bomb |
+| 跨程序 | HTTP/1.0 over 127.0.0.1,單一 request 內完成 full-batch |
+| 併發 | 單 worker 併發;新請求抵達未完 → Cancel + 併發集合重執行 |
 | 記憶體 | 快取上限 env `HELPER_CACHE_MB` 預設 128MB(與 F4 日誌一致) |
 | 降級 | helper spawn 失敗/timeout 3 次 → 標記 disabled 直到下次 app 啟動 |
 

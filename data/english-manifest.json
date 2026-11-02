@@ -1,0 +1,54 @@
+{
+  "generatedAt": "2026-11-02T15:01:32+00:00",
+  "generator": "tools/build_english_dict.py",
+  "model": "zhuyinlm-ime/english-dict v2",
+  "sources": {
+    "tech-terms.txt": {
+      "origin": "tools/tech-terms.txt",
+      "license": "project-authored",
+      "sha256": "d38746aee31ce47c3765975cc7069dbc40f69aab5a507c9ea17773534e2cc24a",
+      "words": 257
+    },
+    "words_alpha.txt": {
+      "url": "https://raw.githubusercontent.com/dwyl/english-words/master/words_alpha.txt",
+      "sha256": "3ed0c94610d8bcf7c11bbb49c56aa49c7234d32b66824df91f554169e572da48",
+      "license": "Unlicense"
+    },
+    "google-10000-english-usa.txt": {
+      "url": "https://raw.githubusercontent.com/first20hours/google-10000-english/master/google-10000-english-usa.txt",
+      "sha256": "981c776dc7e8996accb256e5fea9d241331b9602efe0c977285734890e1ae729",
+      "license": "MIT"
+    },
+    "hunspell_en_US-large.zip": {
+      "url": "https://github.com/en-wl/wordlist/releases/download/rel-2026.02.25/hunspell-en_US-large-2026.02.25.zip",
+      "sha256": "06ab5a2a12c29033f100988d3b0a5e53dcad40bf2473ccb78270619d1da99321",
+      "license": "SCOWL (local cache only, not redistributed)"
+    },
+    "wordfreq": {
+      "origin": "pip:wordfreq",
+      "license": "MIT",
+      "version": "3.1.1"
+    }
+  },
+  "counts": {
+    "predictionTable": 113092,
+    "core": 10000,
+    "dictionary": 373359,
+    "techTerms": 257,
+    "tiers": {
+      "core": 10534,
+      "common": 102437,
+      "tech": 121
+    },
+    "droppedUnverified": 91372
+  },
+  "weights": {
+    "google": 0.25,
+    "hunspell": 0.1,
+    "techFloor": 2.2,
+    "unverifiedMin": 3.5,
+    "min": 1.0,
+    "max": 9.0,
+    "wordfreqTop": 200000
+  }
+}

@@ -13,3 +13,6 @@ build/
 
 .build/
 __pycache__/
+# 詞典建置快取與工具環境
+data/.cache/
+.venv-dict/

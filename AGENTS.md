@@ -15,6 +15,6 @@ Read `PROGRESS.md` before planning work; it distinguishes tested behavior from u
 
 - M1 is a stable basic Zhuyin IME. Do not declare it complete until real input, candidate selection, focus transitions, and cross-app behavior in `docs/STAGE-0-1.md` are verified.
 - For automatic bilingual input, read `docs/BILINGUAL-SPIKE.md`. `Sources/BilingualPrototype` is standalone research code, not connected to the IME. Preserve raw keys and composition state when testing ambiguous input.
-- The removed `data/english-words.txt` came from a third-party commercial app and remains in existing Git history. Do not reuse it; document source, version, and redistribution rights before adding replacement data. Do not rewrite Git history without explicit authorization.
+- The original `data/english-words.txt` came from a third-party commercial app and remains in Git history. Do not reuse it. Current `data/` word lists are self-built from open sources by `tools/build_english_dict.py` and `tools/build_chinese_dict.py` (see README, 詞庫); redistribution rights of the derived files still deserve a check before release. Do not rewrite Git history without explicit authorization.
 - `DESIGN.md` and `PLAN-reranker-backends.md` are historical proposals, not evidence of implemented features or verified platform behavior. AI and English prediction are not implemented.
 - Never log typed content or send it off-device. Do not change the user's current input source or system settings without restoring them after testing; avoid overwriting user files.
