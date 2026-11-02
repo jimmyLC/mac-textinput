@@ -13,12 +13,13 @@ xcodebuild -project "$ROOT/.build/McBopomofo/McBopomofo.xcodeproj" \
   -derivedDataPath "$ROOT/.build/DerivedData" \
   -skip-testing:McBopomofoTests/VersionUpdateApiTests CODE_SIGNING_ALLOWED=NO test
 
-# Standalone bilingual prototype (not yet wired into the IME).
+# Bilingual analyzer and key router, tested standalone on real data (the router is
+# also compiled into the app by prepare_upstream.py).
 BIN="$(mktemp -d)"
-swiftc "$ROOT"/Sources/BilingualPrototype/*.swift "$ROOT/tests/bilingual_resolver.swift" -o swiftc "$ROOT"/Sources/BilingualPrototype/*.swift "$ROOT/Sources/BilingualInput/BilingualInput.swift" "$ROOT/tests/bilingual_routing.swift" -o "$BIN/routing"
-"$BIN/resolver"
-swiftc "$ROOT"/Sources/BilingualPrototype/*.swift "$ROOT/tests/bilingual_analyzer.swift" -o "$BIN/analyzer"
-swiftc "$ROOT"/Sources/BilingualPrototype/*.swift "$ROOT/Sources/BilingualInput/BilingualInput.swift" "$ROOT/tests/bilingual_routing.swift" -o "$BIN/routing"
+PROTO=("$ROOT"/Sources/BilingualPrototype/*.swift)
+swiftc "${PROTO[@]}" "$ROOT/tests/bilingual_resolver.swift" -o "$BIN/resolver"
+swiftc "${PROTO[@]}" "$ROOT/tests/bilingual_analyzer.swift" -o "$BIN/analyzer"
+swiftc "${PROTO[@]}" "$ROOT/Sources/BilingualInput/BilingualInput.swift" "$ROOT/tests/bilingual_routing.swift" -o "$BIN/routing"
 "$BIN/resolver"
 "$BIN/analyzer" "$ROOT"
 "$BIN/routing" "$ROOT"
