@@ -48,6 +48,12 @@ struct BilingualAnalyzerTests {
         precondition(split?.head == "su3cl3" && split?.tail == "hello")
         precondition(analyzer.splitTrailingEnglish("hello") == nil)
         precondition(analyzer.splitTrailingEnglish("su3cl3") == nil)
+        // Completion offers (as in other bilingual IMEs: fun -> function, run -> run).
+        precondition(analyzer.completion(for: "fun")!.count > 3)
+        precondition(analyzer.completion(for: "ab") == nil)          // too short
+        precondition(analyzer.completion(for: "sucl") == nil)        // toneless Chinese, not a word
+        precondition(analyzer.completion(for: "su3") == nil)
+        print("fun ->", analyzer.completion(for: "fun") ?? "nil", "| run ->", analyzer.completion(for: "run") ?? "nil")
         // Coverage on real data. English side: top words that parse as Zhuyin (false "Chinese").
         let topEnglish = words.prefix(20_000).filter { $0.count >= 3 }
         let englishAsZhuyin = topEnglish.filter { zhuyin.parse($0) == .complete }

@@ -14,7 +14,7 @@ git submodule update --init --recursive
 
 產物：`.build/products/ZhuyinLM.app`。建置會在 `.build/` 產生上游副本，套用獨立的輸入來源與程序識別碼、獨立的 Application Support 目錄，並停用上游更新檢查。此版本使用臨時簽名，尚未公證，不應當作正式散布版。
 
-不要使用上游的安裝程式安裝此開發版：它會操作小麥注音的安裝路徑。目前已在開發機安裝隔離測試版，系統啟用及基本注音輸入已確認，跨 App 流程仍待驗證。新機首次安裝可執行 `./scripts/install.sh`；它只會建立新的 `ZhuyinLM.app`，不覆蓋既有檔案。安裝後可用 `swift scripts/check_registration.swift` 檢查註冊狀態。
+不要使用上游的安裝程式安裝此開發版：它會操作小麥注音的安裝路徑。目前已在開發機安裝隔離測試版，系統啟用及基本注音輸入已確認，跨 App 流程仍待驗證。新機首次安裝可執行 `./scripts/install.sh`；它只會建立新的 `ZhuyinLM.app`，不覆蓋既有檔案。安裝後可用 `swift scripts/check_registration.swift` 檢查註冊狀態。已安裝後要換新版用 `./scripts/update.sh`：先備份到 `~/Library/Application Support/ZhuyinLM-backups/`，只替換 `ZhuyinLM.app`；`--restore <備份路徑>` 可還原。
 
 ## 文件
 

@@ -57,6 +57,9 @@ def install_shadow_observer():
             '        keyHandler.clear()\n        BilingualInput.shared.reset()\n        keyHandler.syncWithPreferences()\n')
     replace(controller, '    override func handle(_ maybeEvent: NSEvent!, client: Any!) -> Bool {\n        // nil may be passed, applefeedback://FB11472618\n        guard let event = maybeEvent else {\n            commitComposition(client)\n            return false\n        }\n',
             '    override func handle(_ maybeEvent: NSEvent!, client: Any!) -> Bool {\n        // nil may be passed, applefeedback://FB11472618\n        guard let event = maybeEvent else {\n            commitComposition(client)\n            return false\n        }\n        if let handled = bilingualHandle(event, client: client) { return handled }\n')
+    replace(controller, 'private static let tooltipController', 'static let tooltipController')
+    replace(controller, '        return result\n    }\n\n    // MARK: - Menu Items',
+            '        bilingualAfterKey(client: client)\n        return result\n    }\n\n    // MARK: - Menu Items')
 
 
 def main():

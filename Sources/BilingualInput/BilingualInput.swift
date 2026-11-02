@@ -1,4 +1,5 @@
 import Cocoa
+import InputMethodKit
 
 enum BilingualAction {
     case passThrough                          // let the IME handle the key as usual
@@ -17,6 +18,7 @@ final class BilingualInput {
     private var analyzer: BilingualAnalyzer?
     private var buffer = ""
     private var englishRun = false
+    var tooltipShown = false
     private static let urlSchemes: Set<String> = ["http", "https", "ftp", "file", "ssh", "git", "mailto"]
     private static let runCharacters = Set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-:/@?=&%#+~'")
 
@@ -40,6 +42,12 @@ final class BilingualInput {
 
     func reset() { buffer = ""; englishRun = false }
 
+    /// Completion to show for the current composition, if any.
+    func currentCompletion() -> String? {
+        lock.lock(); let analyzer = self.analyzer; lock.unlock()
+        return analyzer?.completion(for: buffer)
+    }
+
     func decide(_ event: NSEvent, composing: Bool) -> BilingualAction {
         guard event.type == .keyDown else { return .passThrough }
         let flags = event.modifierFlags
@@ -50,6 +58,10 @@ final class BilingualInput {
             if englishRun { return .passThrough }
             if !buffer.isEmpty { buffer.removeLast() }
             return .passThrough
+        }
+        if event.keyCode == 48, composing, let word = currentCompletion() {  // Tab accepts the offer
+            buffer = ""
+            return .commit(word)
         }
         guard let chars = event.characters, chars.count == 1, let scalar = chars.unicodeScalars.first,
               scalar.value >= 0x20, scalar.value < 0x7F else {
@@ -91,6 +103,22 @@ final class BilingualInput {
 }
 
 extension McBopomofoInputMethodController {
+    /// Called after the IME has processed a key: offer an English completion next to the cursor.
+    func bilingualAfterKey(client: Any!) {
+        guard state is InputState.Inputting, let word = BilingualInput.shared.currentCompletion() else {
+            if BilingualInput.shared.tooltipShown {
+                BilingualInput.shared.tooltipShown = false
+                McBopomofoInputMethodController.tooltipController.hide()
+            }
+            return
+        }
+        var lineHeightRect = NSMakeRect(0.0, 0.0, 16.0, 16.0)
+        _ = (client as? IMKTextInput)?.attributes(forCharacterIndex: 0, lineHeightRectangle: &lineHeightRect)
+        BilingualInput.shared.tooltipShown = true
+        McBopomofoInputMethodController.tooltipController.show(
+            tooltip: word + " ⇥", at: NSPoint(x: lineHeightRect.origin.x, y: lineHeightRect.origin.y - 4))
+    }
+
     /// Returns nil when the IME should handle the event as usual.
     func bilingualHandle(_ event: NSEvent, client: Any!) -> Bool? {
         switch BilingualInput.shared.decide(event, composing: state is InputState.Inputting) {

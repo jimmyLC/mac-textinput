@@ -84,3 +84,13 @@ extension BilingualAnalyzer {
         return nil
     }
 }
+
+extension BilingualAnalyzer {
+    /// English completion to offer while `body` is still being typed, or nil when the
+    /// keys look like Chinese (a toneless Zhuyin parse that is not itself an English word).
+    func completion(for body: String) -> String? {
+        guard body.count >= 3, body.allSatisfy({ $0.isASCII && $0.isLowercase }) else { return nil }
+        if zhuyin.parse(body) == .complete && !lexicon.contains(body) { return nil }
+        return lexicon.completion(for: body)
+    }
+}
