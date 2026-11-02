@@ -40,13 +40,9 @@ struct BilingualAnalyzerTests {
         for raw in ["su3cl3Mac ", "hello world ", "zxcv!@# ", "  ", "a", "Mac3Mac "] {
             precondition(analyzer.analyze(raw).map(\.keys).joined() == raw, "lost keys in \(raw)")
         }
-        // Honest ambiguity report: show what the data says about words that are also valid Zhuyin.
-        var both: [String] = []
-        for w in ["hello", "the", "you", "good", "mac", "ok", "am", "me", "hi", "no", "so", "to", "go"] {
-            let z = zhuyin.parse(w) == .complete
-            if z && analyzer.lexicon.contains(w) { both.append(w) }
-        }
-        print("English words that are also complete Zhuyin (undecided by design): \(both)")
+        // Words that also parse as toneless Zhuyin resolve to English, as other bilingual IMEs do.
+        for w in ["run ", "fun ", "sun ", "no ", "so ", "go "] { precondition(kinds(w) == [.english], w) }
+        precondition(kinds("i ") == [.undecided])  // single letters stay ambiguous
         // Coverage on real data. English side: top words that parse as Zhuyin (false "Chinese").
         let topEnglish = words.prefix(20_000).filter { $0.count >= 3 }
         let englishAsZhuyin = topEnglish.filter { zhuyin.parse($0) == .complete }
@@ -59,7 +55,7 @@ struct BilingualAnalyzerTests {
             typed += 1
             if zhuyin.parse(keys) == .complete { parsed += 1 }
         }
-        print("English words (len>=3, top 20k) that also parse as Zhuyin: \(englishAsZhuyin.count)/\(topEnglish.count), e.g. \(englishAsZhuyin.prefix(8))")
+        print("English words (len>=3, top 20k) that also parse as Zhuyin (now resolved to English): \(englishAsZhuyin.count)/\(topEnglish.count), e.g. \(englishAsZhuyin.prefix(8))")
         print("Top-5000 Chinese readings typed with tones that parse as Zhuyin: \(parsed)/\(typed)")
         precondition(Double(parsed) / Double(typed) > 0.99, "Zhuyin recall too low")
         print("Bilingual analyzer: parser, fixtures and key preservation passed")
