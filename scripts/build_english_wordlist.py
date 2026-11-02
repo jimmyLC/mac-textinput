@@ -5,6 +5,8 @@ Inputs
   --wiki   enwiki word-frequency file from IlyaSemenov/wikipedia-word-frequency
            (lines: "word count", derived from English Wikipedia text).
   --extra  data/sources/english-extra.txt, a hand-written supplement.
+  --common data/sources/english-common.txt, a hand-written list of everyday
+           words whose counts are multiplied by --common-boost.
   --scowl  optional SCOWL/Hunspell en_US.dic; words it lists (with simple
            inflections) get their count multiplied by --boost, which pushes
            ordinary vocabulary above proper nouns from Wikipedia.
@@ -17,6 +19,8 @@ p.add_argument("--wiki", required=True)
 p.add_argument("--extra", default="data/sources/english-extra.txt")
 p.add_argument("--out", default="data/english-words.txt")
 p.add_argument("--limit", type=int, default=150000)
+p.add_argument("--common")
+p.add_argument("--common-boost", type=int, default=20)
 p.add_argument("--scowl")
 p.add_argument("--boost", type=int, default=10)
 p.add_argument("--extra-count", type=int, default=400000,
@@ -54,6 +58,13 @@ def known(w):
 
 if stems:
     counts = {w: c * (a.boost if known(w) else 1) for w, c in counts.items()}
+
+if a.common:
+    for line in open(a.common, encoding="utf-8"):
+        if line.strip() and not line.startswith("#"):
+            for w in line.split():
+                if w in counts:
+                    counts[w] *= a.common_boost
 
 top = sorted(counts.items(), key=lambda x: (-x[1], x[0]))[: a.limit]
 words = dict(top)
