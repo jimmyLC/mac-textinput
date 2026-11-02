@@ -7,6 +7,7 @@ enum BilingualAction {
     case commitComposingThenLiteral           // commit current composition, then insert the key
     case commit(String)                       // drop the composition; commit this text
     case replay(head: String, text: String)   // rebuild `head` as Zhuyin, commit it, then commit `text`
+    case toggled(String)                      // Shift tap flipped this run's reading; show the label
 }
 
 /// Tracks the raw keys of the current composition and decides, at a space, whether
@@ -19,6 +20,11 @@ final class BilingualInput {
     private var buffer = ""
     private var englishRun = false
     var tooltipShown = false
+    /// Manual override of the automatic reading for the current run (Shift tap while composing).
+    private enum Override { case english, chinese }
+    private var override: Override?
+    private var shiftDown = false
+    private var shiftClean = false
     private static let urlSchemes: Set<String> = ["http", "https", "ftp", "file", "ssh", "git", "mailto"]
     private static let runCharacters = Set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-:/@?=&%#+~'")
 
@@ -40,7 +46,7 @@ final class BilingualInput {
         lock.lock(); analyzer = built; lock.unlock()
     }
 
-    func reset() { buffer = ""; englishRun = false }
+    func reset() { buffer = ""; englishRun = false; override = nil; shiftDown = false }
 
     /// Completion to show for the current composition, if any.
     func currentCompletion() -> String? {
@@ -48,8 +54,27 @@ final class BilingualInput {
         return analyzer?.completion(for: buffer)
     }
 
+    /// A lone Shift tap (press and release with no other key) flips the reading of the current run.
+    private func decideShift(_ event: NSEvent, composing: Bool) -> BilingualAction {
+        let isShift = event.keyCode == 56 || event.keyCode == 60
+        guard isShift else { return .passThrough }
+        if event.modifierFlags.contains(.shift) {
+            shiftDown = true; shiftClean = true
+            return .passThrough
+        }
+        defer { shiftDown = false }
+        guard shiftDown, shiftClean, composing, !buffer.isEmpty, !englishRun else { return .passThrough }
+        lock.lock(); let analyzer = self.analyzer; lock.unlock()
+        let auto = analyzer?.classify(buffer + " ") == .english
+        let current: Override = override ?? (auto ? .english : .chinese)
+        override = current == .english ? .chinese : .english
+        return .toggled(override == .english ? "English" : "中文")
+    }
+
     func decide(_ event: NSEvent, composing: Bool) -> BilingualAction {
+        if event.type == .flagsChanged { return decideShift(event, composing: composing) }
         guard event.type == .keyDown else { return .passThrough }
+        shiftClean = false
         let flags = event.modifierFlags
         if flags.contains(.command) || flags.contains(.control) || flags.contains(.option) {
             reset(); return .passThrough
@@ -94,8 +119,11 @@ final class BilingualInput {
             return .passThrough
         }
         let body = buffer
-        buffer = ""
+        let forced = override
+        buffer = ""; override = nil
         guard composing, !body.isEmpty, let analyzer = analyzer else { return .passThrough }
+        if forced == .chinese { return .passThrough }
+        if forced == .english { return .commit(body + " ") }
         if analyzer.classify(body + " ") == .english { return .commit(body + " ") }
         if let (head, tail) = analyzer.splitTrailingEnglish(body) { return .replay(head: head, text: tail + " ") }
         return .passThrough
@@ -124,6 +152,13 @@ extension McBopomofoInputMethodController {
         switch BilingualInput.shared.decide(event, composing: state is InputState.Inputting) {
         case .passThrough:
             return nil
+        case .toggled(let label):
+            var rect = NSMakeRect(0.0, 0.0, 16.0, 16.0)
+            _ = (client as? IMKTextInput)?.attributes(forCharacterIndex: 0, lineHeightRectangle: &rect)
+            BilingualInput.shared.tooltipShown = true
+            McBopomofoInputMethodController.tooltipController.show(
+                tooltip: label, at: NSPoint(x: rect.origin.x, y: rect.origin.y - 4))
+            return true
         case .literal:
             return false
         case .commitComposingThenLiteral:
