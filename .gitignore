@@ -10,3 +10,6 @@ private/
 DerivedData/
 build/
 *.xcuserstate
+
+.build/
+__pycache__/

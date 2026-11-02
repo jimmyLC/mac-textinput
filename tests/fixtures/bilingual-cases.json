@@ -1,0 +1,8 @@
+[
+  {"id":"zh-nihao", "keys":"su3cl3", "expected":"你好", "kind":"zhuyin"},
+  {"id":"zh-tiantian", "keys":"wu0wu0", "expected":"天天", "kind":"zhuyin"},
+  {"id":"english-hello", "keys":"hello ", "expected":"hello ", "kind":"english"},
+  {"id":"english-mac", "keys":"Mac ", "expected":"Mac ", "kind":"english"},
+  {"id":"mixed-nihao-mac", "keys":"su3cl3Mac ", "expected":"你好Mac ", "kind":"mixed"},
+  {"id":"url", "keys":"https://example.com ", "expected":"https://example.com ", "kind":"english"}
+]

@@ -1,0 +1,3 @@
+[submodule "vendor/McBopomofo"]
+	path = vendor/McBopomofo
+	url = https://github.com/openvanilla/McBopomofo.git
