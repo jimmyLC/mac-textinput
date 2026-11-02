@@ -23,6 +23,7 @@ def replace(path, old, new):
 SHADOW_FILES = [
     *sorted((ROOT / 'Sources' / 'BilingualPrototype').glob('*.swift')),
     ROOT / 'Sources' / 'BilingualInput' / 'BilingualInput.swift',
+    ROOT / 'Sources' / 'BilingualInput' / 'BilingualInputController.swift',
 ]
 
 
