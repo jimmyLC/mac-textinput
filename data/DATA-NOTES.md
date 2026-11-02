@@ -9,13 +9,14 @@
 | 項目 | 內容 |
 |---|---|
 | 詞頻 | [IlyaSemenov/wikipedia-word-frequency](https://github.com/IlyaSemenov/wikipedia-word-frequency) 的 `results/enwiki-2023-04-13.txt`（英文維基百科 2023-04-13 dump 統計，至少出現在 3 篇文章的詞）。該檔 SHA-256：`e2071140a49a6c40c732bd68c36836ef13c0978233fb3d5e1b2a3c2d34faef59` |
-| 補充詞 | `data/sources/english-extra.txt`，本專案手寫的工程／口語詞（github、kubectl、tvos、dont 等），count 固定設為 2,000,000 |
+| 補充詞 | `data/sources/english-extra.txt`，本專案手寫的工程／口語詞（github、kubectl、tvos、dont 等），count 下限設為 400,000 |
+| 常用詞加權 | SCOWL（Kevin Atkinson，寬鬆授權，需保留版權聲明）`hunspell-en_US-2026.02.25` 的 `en_US.dic`：有列在詞典（含簡單詞形變化）的詞，count ×10，讓一般詞彙排在維基人名地名之前。此檔只在建表時使用，不隨產品散布 |
 | 過濾 | 只留 `[a-z]+`、單字母僅 a／i，取 count 前 150,000 名，再合併補充詞 |
 
 重新產生：
 
 ```sh
-python3 scripts/build_english_wordlist.py --wiki <enwiki-2023-04-13.txt>
+python3 scripts/build_english_wordlist.py --wiki <enwiki-2023-04-13.txt> --scowl <en_US.dic>
 ```
 
 ## 授權狀態（待確認，勿視為已清白）
@@ -30,12 +31,15 @@ python3 scripts/build_english_wordlist.py --wiki <enwiki-2023-04-13.txt>
 - 沒有縮寫（don't 被拆成 don／t）與帶點縮寫（e.g.、a.m.）。
 - 前綴預測命中率低於舊表（見下）；之後可混入真實輸入的使用記憶，或補一份口語語料。
 
-## 與舊表比較（2026-11-02，134 個手選測試詞，取前綴 top-5）
+## 與舊表比較（2026-11-02，前綴 top-5 命中；兩組各約 100 個手選詞）
 
-| 前綴長度 | 舊表 | 新表 |
+| 前綴長度 | 舊表 dev／held-out | 新表 dev／held-out |
 |---|---|---|
-| 2 | 36/132 | 24/134 |
-| 3 | 103/132 | 91/134 |
-| 4 | 121/132 | 116/134 |
+| 2 | 32/105、33/100 | 22/105、26/100 |
+| 3 | 83/105、75/100 | 71/105、64/100 |
+| 4 | 97/105、94/99 | 89/105、84/99 |
 
-新表垃圾詞（無母音、過長、含 www 等）較少：全表 3,413 vs 9,584。測試詞表含幾個補充詞（如 github），對新表略有利。舊表只計入純 a–z 的 227,913 詞。
+- 調整：SCOWL 加權與降低補充詞權重，讓 held-out 2 字母前綴從 20 升到 26、3 字母從 59 升到 64；之後差距仍在，瓶頸是語料類型（百科 vs 網路口語）。
+- 新表垃圾詞較少（無母音、過長、含 www 等）：3,413 vs 9,584。
+- 測試詞為作者手選，非正式 benchmark；加權倍數與補充詞下限是在 dev 集調的，held-out 為另一組詞。
+- 後續改善方向：混入使用記憶、補口語語料。

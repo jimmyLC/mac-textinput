@@ -5,6 +5,9 @@ Inputs
   --wiki   enwiki word-frequency file from IlyaSemenov/wikipedia-word-frequency
            (lines: "word count", derived from English Wikipedia text).
   --extra  data/sources/english-extra.txt, a hand-written supplement.
+  --scowl  optional SCOWL/Hunspell en_US.dic; words it lists (with simple
+           inflections) get their count multiplied by --boost, which pushes
+           ordinary vocabulary above proper nouns from Wikipedia.
 Output is sorted by count descending. See data/DATA-NOTES.md for provenance.
 """
 import argparse, re, sys
@@ -14,7 +17,9 @@ p.add_argument("--wiki", required=True)
 p.add_argument("--extra", default="data/sources/english-extra.txt")
 p.add_argument("--out", default="data/english-words.txt")
 p.add_argument("--limit", type=int, default=150000)
-p.add_argument("--extra-count", type=int, default=2000000,
+p.add_argument("--scowl")
+p.add_argument("--boost", type=int, default=10)
+p.add_argument("--extra-count", type=int, default=400000,
                help="floor count for supplement words (about the top few thousand wiki ranks)")
 a = p.parse_args()
 
@@ -27,6 +32,28 @@ for line in open(a.wiki, encoding="utf-8"):
     w, c = parts[0], int(parts[1])
     if WORD.fullmatch(w) and (len(w) > 1 or w in ("a", "i")):
         counts[w] = c
+
+SUFFIXES = (("s", ""), ("es", ""), ("ed", ""), ("ed", "e"), ("d", ""), ("ing", ""), ("ing", "e"),
+            ("ly", ""), ("er", ""), ("er", "e"), ("est", ""), ("est", "e"), ("ies", "y"),
+            ("ied", "y"), ("ier", "y"), ("ness", ""))
+stems = set()
+if a.scowl:
+    with open(a.scowl, encoding="utf-8", errors="ignore") as f:
+        next(f)
+        stems = {l.split("/")[0].strip() for l in f if l[:1].islower()}
+
+def known(w):
+    if w in stems:
+        return True
+    for suf, add in SUFFIXES:
+        if w.endswith(suf) and len(w) > len(suf) + 2:
+            b = w[: -len(suf)] + add
+            if b in stems or (len(b) > 2 and b[-1] == b[-2] and b[:-1] in stems):
+                return True
+    return False
+
+if stems:
+    counts = {w: c * (a.boost if known(w) else 1) for w, c in counts.items()}
 
 top = sorted(counts.items(), key=lambda x: (-x[1], x[0]))[: a.limit]
 words = dict(top)
