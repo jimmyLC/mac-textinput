@@ -12,3 +12,11 @@ xcodebuild -project "$ROOT/.build/McBopomofo/McBopomofo.xcodeproj" \
   -scheme McBopomofo -configuration Debug -destination 'platform=macOS' \
   -derivedDataPath "$ROOT/.build/DerivedData" \
   -skip-testing:McBopomofoTests/VersionUpdateApiTests CODE_SIGNING_ALLOWED=NO test
+
+# Standalone bilingual prototype (not yet wired into the IME).
+BIN="$(mktemp -d)"
+swiftc "$ROOT"/Sources/BilingualPrototype/*.swift "$ROOT/tests/bilingual_resolver.swift" -o "$BIN/resolver"
+swiftc "$ROOT"/Sources/BilingualPrototype/*.swift "$ROOT/tests/bilingual_analyzer.swift" -o "$BIN/analyzer"
+"$BIN/resolver"
+"$BIN/analyzer" "$ROOT"
+rm -rf "$BIN"

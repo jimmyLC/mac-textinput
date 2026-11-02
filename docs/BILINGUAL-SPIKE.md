@@ -29,4 +29,15 @@ swiftc Sources/BilingualPrototype/*.swift tests/bilingual_resolver.swift -o /tmp
 
 原型的 `CompositionBuffer.swift` 測試原始鍵序保留、退格和交付；它尚未處理 IMK 客戶端接受、游標、候選或焦點切換，不可接入正式輸入流程。
 
-`EnglishLexicon.swift` 提供注入詞表後的大小寫不敏感單字及前綴查詢，測試資料僅為手寫範例。詞頻資源候選 [Wikipedia word frequency](https://github.com/IlyaSemenov/wikipedia-word-frequency) 的程式以 MIT 發布、語料取自維基百科；實際詞頻檔的來源、授權適用範圍及歸屬仍須確認，尚未匯入或用於產品。
+`EnglishLexicon.swift` 提供注入詞表後的大小寫不敏感單字及前綴查詢，測試資料僅為手寫範例。詞庫現已改用 `data/english-words.txt`（本專案自建，見 README〈詞庫〉）；以下為舊的詞頻資源候選 [Wikipedia word frequency](https://github.com/IlyaSemenov/wikipedia-word-frequency) 的程式以 MIT 發布、語料取自維基百科；實際詞頻檔的來源、授權適用範圍及歸屬仍須確認，尚未匯入或用於產品。
+
+## 離線分析器（2026-11-02，尚未接入 IMK）
+
+`ZhuyinKeyboard.swift` 含標準鍵位表與 `ZhuyinSyllableIndex`；`BilingualAnalyzer.swift` 把原始按鍵依空白與小寫→大寫轉換切段，逐段判斷中文／英文／未決，且各段串回必等於原始輸入。
+
+重要發現：只看「能否拆成合法注音音節」太寬鬆，例如 `hello` 可拆成 ㄘ|ㄍㄠ|ㄠ|ㄟ。因此規則改為：無聲調音節必須屬於詞庫中至少兩音節的詞；單一音節須有明確聲調，除非它是整段輸入。以真實資料量測：
+
+- 前 5000 筆中文詞庫讀音（帶聲調輸入）100% 能判為注音。**未量測無聲調輸入的召回率。**
+- 英文詞頻前 2 萬詞（長度 ≥3）中 94 個也能判為注音（如 run、sun、fun），這些依原型規則維持「未決」，須靠上下文或使用者確認。`no`、`so`、`go` 等短詞同樣未決。
+
+測試：`./scripts/test.sh` 末段會編譯並執行 `tests/bilingual_resolver.swift` 與 `tests/bilingual_analyzer.swift`。
