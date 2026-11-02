@@ -94,3 +94,13 @@ extension BilingualAnalyzer {
         return lexicon.completion(for: body)
     }
 }
+
+extension BilingualAnalyzer {
+    /// Whether the composition should already be displayed as English while still typing:
+    /// all lowercase letters and a word, or (3+ letters) a word prefix that is not Zhuyin.
+    func showsAsEnglish(_ body: String) -> Bool {
+        guard body.count >= 2, body.allSatisfy({ $0.isASCII && $0.isLowercase }) else { return false }
+        if lexicon.contains(body) { return true }
+        return body.count >= 3 && lexicon.containsPrefix(body) && zhuyin.parse(body) != .complete
+    }
+}

@@ -48,6 +48,14 @@ final class BilingualInput {
 
     func reset() { buffer = ""; englishRun = false; override = nil; shiftDown = false }
 
+    /// The raw keys to display as English instead of Zhuyin right now, if any.
+    func liveEnglish() -> String? {
+        if override == .chinese || buffer.isEmpty { return nil }
+        lock.lock(); let analyzer = self.analyzer; lock.unlock()
+        if override == .english { return buffer }
+        return analyzer?.showsAsEnglish(buffer) == true ? buffer : nil
+    }
+
     /// Completion to show for the current composition, if any.
     func currentCompletion() -> String? {
         lock.lock(); let analyzer = self.analyzer; lock.unlock()
@@ -83,6 +91,10 @@ final class BilingualInput {
             if englishRun { return .passThrough }
             if !buffer.isEmpty { buffer.removeLast() }
             return .passThrough
+        }
+        if (event.keyCode == 36 || event.keyCode == 76), composing, let word = liveEnglish() {  // Return/Enter
+            buffer = ""; override = nil
+            return .commit(word)
         }
         if event.keyCode == 48, composing, let word = currentCompletion() {  // Tab accepts the offer
             buffer = ""
@@ -124,7 +136,8 @@ final class BilingualInput {
         guard composing, !body.isEmpty, let analyzer = analyzer else { return .passThrough }
         if forced == .chinese { return .passThrough }
         if forced == .english { return .commit(body + " ") }
-        if analyzer.classify(body + " ") == .english { return .commit(body + " ") }
+        // Same rule as the live display, so what was shown is what gets committed.
+        if analyzer.classify(body + " ") == .english || analyzer.showsAsEnglish(body) { return .commit(body + " ") }
         if let (head, tail) = analyzer.splitTrailingEnglish(body) { return .replay(head: head, text: tail + " ") }
         return .passThrough
     }
@@ -133,6 +146,13 @@ final class BilingualInput {
 extension McBopomofoInputMethodController {
     /// Called after the IME has processed a key: offer an English completion next to the cursor.
     func bilingualAfterKey(client: Any!) {
+        if state is InputState.Inputting, let word = BilingualInput.shared.liveEnglish() {
+            let marked = NSAttributedString(string: word, attributes: [
+                .underlineStyle: NSUnderlineStyle.single.rawValue, .markedClauseSegment: 0])
+            (client as? IMKTextInput)?.setMarkedText(
+                marked, selectionRange: NSRange(location: word.count, length: 0),
+                replacementRange: NSRange(location: NSNotFound, length: NSNotFound))
+        }
         guard state is InputState.Inputting, let word = BilingualInput.shared.currentCompletion() else {
             if BilingualInput.shared.tooltipShown {
                 BilingualInput.shared.tooltipShown = false

@@ -54,6 +54,9 @@ struct BilingualAnalyzerTests {
         precondition(analyzer.completion(for: "sucl") == nil)        // toneless Chinese, not a word
         precondition(analyzer.completion(for: "su3") == nil)
         print("fun ->", analyzer.completion(for: "fun") ?? "nil", "| run ->", analyzer.completion(for: "run") ?? "nil")
+        // Live display while typing.
+        for w in ["hello", "hell", "hel", "fun", "run", "function"] { precondition(analyzer.showsAsEnglish(w), w) }
+        for w in ["sucl", "su3", "s", "Mac"] { precondition(!analyzer.showsAsEnglish(w), w) }
         // Coverage on real data. English side: top words that parse as Zhuyin (false "Chinese").
         let topEnglish = words.prefix(20_000).filter { $0.count >= 3 }
         let englishAsZhuyin = topEnglish.filter { zhuyin.parse($0) == .complete }
