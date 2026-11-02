@@ -30,7 +30,7 @@
 | F13 | 針對特定 app 的組字相容措施:**FloatingComposition** 為 per-app 選項,需使用者到選單開啟,提示文案「can drop or duplicate text while composing」,已提示清單持久化(`FloatingCompositionPromptedHosts`) | 二進位字串 |
 | F14 | 英文預測資料與互動全貌:227,921 行 TSV 詞表;usage 記憶為 `word→{updated,score}` 可重置;Tab 接受、RightArrow 可選、中文下一字僅 Tab;`bopomofoPreview` 在英文流同時預覽注音;Limit/Page 設定;自訂詞檔支援 # 註解、存檔熱載、恆排內建之前 | `english-words.txt`(227,921 行)、`english-usage.json` 欄位、nm `EnglishPredictionEngine.predict(prefix:limit:includeEngineering:)`、字串 "Chinese next-character suggestions are accepted with Tab only."、自訂詞檔頭註解 |
 
-本產品**不使用** ZingIME 的任何程式碼、資源與模型;血統來自開源 Apache-2.0 專案。
+本產品**不使用** ZingIME 的任何程式碼、資源與模型;血統來自開源 MIT 專案(McBopomofo)。
 
 ## 1. 產品定位
 
@@ -64,8 +64,9 @@
 
 | 組件 | 來源 | 授權 | 使用方式 |
 |------|------|------|---------|
-| 注音解析、ReadingGrid、LM 數值核心 | github.com/openvanilla/McBopomofo 的 `Source/Engine/gramambular2`(`Formosa::Gramambular`)/ `Source/Engine/Mandarin` C++ 庫 | Apache-2.0 | SPM 依賴,原樣沿用 |
-| 基礎輸入流/候選窗骨架 | 同上 Swift 端(`McBopomofoInputController`、`CandidateUI`) | Apache-2.0 | fork 後修改,保留 NOTICE |
+| 注音解析、ReadingGrid、LM 數值核心 | github.com/openvanilla/McBopomofo 的 `Source/Engine/gramambular2`(`Formosa::Gramambular`)/ `Source/Engine/Mandarin` C++ 庫 | **MIT** | SPM 依賴,原樣沿用 |
+| 基礎輸入流/候選窗骨架 | 同上 Swift 端(`McBopomofoInputController`、`CandidateUI`) | **MIT** | fork 後修改,保留版權聲明 |
+| 注音詞庫母體 | McBopomofo 發布內 `Resources/data.txt`、`associated-phrases-v2.txt` | **MIT** | 本機解析成 `data/chinese-lexicon.tsv` 等衍生檔(見 `data/CHINESE-DICT.md`) |
 | LLM runtime | ml-explore/mlx-swift、huggingface/swift-transformers、huggingface/swift-jinja | MIT/Apache-2.0 | SPM 依賴 |
 | 基底模型 | mlx-community `Qwen2.5-0.5B-Instruct-4bit`(或同期更小者) | Apache-2.0(Qwen 系) | 隨 app 打包;若供微調版需個別評估 |
 | 自動更新 | Sparkle 2 | MIT | SPM 依賴 |
@@ -132,6 +133,12 @@ Deactivated
 每個狀態攜帶不可變 snapshot(`InputState` protocol + value types),UI 與 reranker 都只消費小快照 —— 這是 DOS 防抖設計的基礎。
 
 ## 5. 學習系統
+
+> **詞庫來源**:統計層的初始語料為本專案**自建**的兩套資料——
+> 中文詞庫取自 McBopomofo 官方發布(MIT)的 `data.txt`,本機解析成
+> `data/chinese-lexicon.tsv`(160,792 詞,含多讀音與 log10 分數);
+> 英文詞庫見 `data/english-words.txt`(103,452 詞,自建 Zipf 混合權重)。
+> 兩者的來源、授權、統計與重建方式分別見 `data/CHINESE-DICT.md`、`data/ENGLISH-DICT.md`。
 
 ### 5.1 統計層:selection boost(先用,最重要)
 - `ChineseSelectionMemory.recordSelection(reading:value:)` → 內存 `key=(reading,value) -> count`

@@ -1,0 +1,27 @@
+{
+  "generatedAt": "2026-11-02T14:52:23+00:00",
+  "generator": "tools/build_chinese_dict.py",
+  "model": "zhuyinlm-ime/chinese-dict v1",
+  "source": {
+    "project": "openvanilla/McBopomofo",
+    "license": "MIT",
+    "release": "3.1.1",
+    "installerUrl": "https://github.com/openvanilla/McBopomofo/releases/download/3.1.1/McBopomofo-Installer-3.1.1.zip",
+    "files": {
+      "data.txt": {
+        "sha256": "0deae7b7c1dcde1d7a30d139e7068543e0c0e7112e944b63eb52947bca1db7ac"
+      },
+      "associated-phrases-v2.txt": {
+        "sha256": "94d094bf950e2170b170163a8fb71398eb5afb6cdc65fdc811e7e17616210a95"
+      }
+    }
+  },
+  "counts": {
+    "uniqueWords": 160792,
+    "commonTop": 10000,
+    "multiReadingWords": 8615,
+    "associatedPhrases": 94784,
+    "coverageOfMassPercent": 82.1,
+    "thresholdScore": -4.881877
+  }
+}

@@ -120,5 +120,6 @@ python3 -m venv .venv-dict
 
 - [ ] 依 hunspell affix 展開詞形,涵蓋更多複數 / 過去式 / -ing 變化。
 - [ ] 評估把基底表的第三方依賴整段替換掉(改以 SCOWL + 開放語料直接建構),達成「零第三方資料」。
-- [ ] 中文常用詞表改由 McBopomofo 開放語料(`data.txt`,Apache-2.0)重建,取代既有第三方衍生版本。
+- [x] 中文常用詞表改由 McBopomofo 開放語料(`data.txt`,MIT)重建,取代既有第三方衍生版本 → 見 `data/CHINESE-DICT.md`。
 - [ ] 引擎端整合:`english-words.txt` 載入為前綴 trie + top-K 預計算;`english-words-user.txt` 熱載。
+- [x] 中文詞表重建 → 見 `data/CHINESE-DICT.md` 與 `tools/build_chinese_dict.py`。
