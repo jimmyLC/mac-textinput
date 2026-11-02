@@ -53,6 +53,13 @@ def main():
         text = text.replace('= "Bopomofo";', '= "ZhuyinLM - Bopomofo";')
         text = text.replace('= "Plain Bopomofo";', '= "ZhuyinLM - Plain Bopomofo";')
         path.write_text(text)
+    for icon in (ROOT / 'assets' / 'icons').glob('*.tiff'):
+        shutil.copy(icon, DEST / 'Source' / 'Images' / icon.name)
+    appicons = DEST / 'Source' / 'Images' / 'Images.xcassets' / 'AppIcon.appiconset'
+    for icon in (ROOT / 'assets' / 'icons' / 'AppIcon.appiconset').glob('*.png'):
+        if not (appicons / icon.name).exists():
+            raise RuntimeError(f'Unexpected app icon name {icon.name}')
+        shutil.copy(icon, appicons / icon.name)
     print(f'Prepared {DEST} from {PIN}')
 
 
