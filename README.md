@@ -11,6 +11,7 @@ macOS 注音輸入法的設計與實作規劃:**傳統統計語言模型為核�
 | [`PLAN-reranker-backends.md`](PLAN-reranker-backends.md) | 雙後端 reranker 實作規劃:**MLX + Qwen2.5-0.5B** 與 **Apple Foundation Models** 並行;含工作分解、介面契約、prompt/演算法規格、eval harness、6 週排程、風險登記簿。 |
 | [`data/DATA-NOTES.md`](data/DATA-NOTES.md) | 內建英文詞頻表的格式、來源、完整性與授權注意。 |
 | `data/english-words.txt` | 227,921 行 TSV(`word<TAB>count`),英文預測用詞頻表。 |
+| `data/english-common-10000.txt` / `.tsv` | 由詞頻表整理出的 10,000 個常用詞(頻率排序),方法與限制見 `data/DATA-NOTES.md`。 |
 
 ## 設計摘要
 
