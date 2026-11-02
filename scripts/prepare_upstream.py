@@ -20,6 +20,45 @@ def replace(path, old, new):
     path.write_text(text.replace(old, new))
 
 
+SHADOW_FILES = [
+    *sorted((ROOT / 'Sources' / 'BilingualPrototype').glob('*.swift')),
+    ROOT / 'Sources' / 'BilingualShadow' / 'BilingualShadow.swift',
+]
+
+
+def install_shadow_observer():
+    """Compile the bilingual analyzer into the app and observe key events read-only."""
+    source = DEST / 'Source'
+    for path in SHADOW_FILES:
+        shutil.copy(path, source / path.name)
+    pbx = DEST / 'McBopomofo.xcodeproj' / 'project.pbxproj'
+    text = pbx.read_text()
+    anchor_build = 'D44FB74527915565003C80A6 /* Preferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = D44FB74427915555003C80A6 /* Preferences.swift */; };\n'
+    anchor_ref = 'D44FB74427915555003C80A6 /* Preferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Preferences.swift; sourceTree = "<group>"; };\n'
+    anchor_group = '\t\t\t\tD44FB74427915555003C80A6 /* Preferences.swift */,\n'
+    anchor_phase = '\t\t\t\tD44FB74527915565003C80A6 /* Preferences.swift in Sources */,\n'
+    for anchor in (anchor_build, anchor_ref, anchor_group, anchor_phase):
+        if text.count(anchor) != 1:
+            raise RuntimeError('project.pbxproj layout changed; cannot add shadow files')
+    builds = refs = groups = phases = ''
+    for index, path in enumerate(SHADOW_FILES):
+        ref_id = f'5A1E0000000000000000{index:04X}'
+        build_id = f'5A1E0000000000000001{index:04X}'
+        name = path.name
+        builds += f'\t\t{build_id} /* {name} in Sources */ = {{isa = PBXBuildFile; fileRef = {ref_id} /* {name} */; }};\n'
+        refs += f'\t\t{ref_id} /* {name} */ = {{isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = {name}; sourceTree = "<group>"; }};\n'
+        groups += f'\t\t\t\t{ref_id} /* {name} */,\n'
+        phases += f'\t\t\t\t{build_id} /* {name} in Sources */,\n'
+    text = (text.replace(anchor_build, anchor_build + builds).replace(anchor_ref, anchor_ref + refs)
+            .replace(anchor_group, anchor_group + groups).replace(anchor_phase, anchor_phase + phases))
+    pbx.write_text(text)
+    controller = source / 'InputMethodController.swift'
+    replace(controller, '        keyHandler.clear()\n        keyHandler.syncWithPreferences()\n',
+            '        keyHandler.clear()\n        BilingualShadow.shared.reset()\n        keyHandler.syncWithPreferences()\n')
+    replace(controller, '    override func handle(_ maybeEvent: NSEvent!, client: Any!) -> Bool {\n        // nil may be passed, applefeedback://FB11472618\n        guard let event = maybeEvent else {\n            commitComposition(client)\n            return false\n        }\n',
+            '    override func handle(_ maybeEvent: NSEvent!, client: Any!) -> Bool {\n        // nil may be passed, applefeedback://FB11472618\n        guard let event = maybeEvent else {\n            commitComposition(client)\n            return false\n        }\n        BilingualShadow.shared.observe(event)\n')
+
+
 def main():
     if not (UPSTREAM / 'McBopomofo.xcodeproj').exists():
         sys.exit('Run: git submodule update --init --recursive')
@@ -60,6 +99,7 @@ def main():
         if not (appicons / icon.name).exists():
             raise RuntimeError(f'Unexpected app icon name {icon.name}')
         shutil.copy(icon, appicons / icon.name)
+    install_shadow_observer()
     print(f'Prepared {DEST} from {PIN}')
 
 
