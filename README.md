@@ -1,7 +1,7 @@
 # mac-textinput · ZhuyinLM-IME
 
 macOS 注音輸入法的設計與實作規劃:**傳統統計語言模型為核心,LLM reranker 為增量選字層。**
-本 repo 目前處於**設計/規劃階段**,尚無可執行的程式碼。
+本 repo 目前處於**設計/規劃 + 資料建置階段**,尚無可執行的輸入法程式碼。
 
 ## 文件
 
@@ -9,9 +9,27 @@ macOS 注音輸入法的設計與實作規劃:**傳統統計語言模型為核�
 |---|---|
 | [`DESIGN.md`](DESIGN.md) | 系統架構、模組介面、學習系統、LLM reranker 設計、詞庫熱更新、里程碑。含對參考產品 ZingIME 的證據化逆向調查(F1–F14),所有結論標註觀察/推論。 |
 | [`PLAN-reranker-backends.md`](PLAN-reranker-backends.md) | 雙後端 reranker 實作規劃:**MLX + Qwen2.5-0.5B** 與 **Apple Foundation Models** 並行;含工作分解、介面契約、prompt/演算法規格、eval harness、6 週排程、風險登記簿。 |
-| `data/english-words.txt` | 227,921 行 TSV(`word<TAB>count`),英文預測用詞頻表。 |
-| `data/english-common-100000.txt` / `.tsv` | 由詞頻表整理出的 100,000 個英文常用詞(頻率排序),方法與限制見 `data/DATA-NOTES.md`。 |
-| `data/chinese-common-10000.txt` / `.tsv` | 由小麥注音詞庫整理出的 10,000 個中文常用字詞(含注音讀音),方法與限制見 `data/DATA-NOTES.md`。 |
+| [`data/ENGLISH-DICT.md`](data/ENGLISH-DICT.md) | **自建英文詞典**:來源、授權、權重模型、分層統計、限制與重build方式。 |
+
+## 資料
+
+| 檔案 | 內容 |
+|---|---|
+| `data/english-words.txt` | 自建英文預測詞頻表,103,452 行 TSV(`word<TAB>count`),count 為單調遞增權重。 |
+| `data/english-common-10000.txt` | 高信心核心 10,000 詞(頻率排序)。 |
+| `data/english-tech-terms.txt` | 技術 / 品牌 / 縮寫詞 257 筆,供 `includeEngineering` 開關使用。 |
+| `data/english-dictionary.txt` | 全量合法英文詞 412,417 筆(驗收用,無權重)。 |
+| `data/english-manifest.json` | 詞典建置後設:來源 URL、SHA-256、統計、權重參數。 |
+| `data/english-words-user.example.txt` | 使用者自訂詞檔格式範例(支援 `#` 註解、存檔熱載)。 |
+| `data/chinese-common-10000.txt` / `.tsv` | 由小麥注音詞庫整理出的 10,000 個中文常用字詞(含注音讀音);待改以 McBopomofo 開放語料重建。 |
+| `data/sources/` | 詞典建置的輸入:種子詞表、自建技術詞表、遠端來源本機快取(不入版控)。 |
+
+重建英文詞典:
+
+```bash
+python3 -m venv .venv-dict && .venv-dict/bin/pip install wordfreq
+.venv-dict/bin/python tools/build_english_dict.py
+```
 
 ## 設計摘要
 
@@ -24,4 +42,5 @@ macOS 注音輸入法的設計與實作規劃:**傳統統計語言模型為核�
 
 **No license.** 本 repo 未授予任何開源授權,版權所有。文件與資料僅供閱讀參考;如需使用請聯絡作者。
 
-`data/english-words.txt` 為第三方來源的詞頻資料(詳見 `data/DATA-NOTES.md`),其權利狀態獨立於本專案;若權利人提出要求將移除。
+英文詞典的來源與授權狀態逐項列於 [`data/ENGLISH-DICT.md`](data/ENGLISH-DICT.md);
+其中 `data/sources/base-english-100000.txt` 沿用既有第三方詞表,其權利狀態獨立於本專案,若權利人提出要求將移除。
