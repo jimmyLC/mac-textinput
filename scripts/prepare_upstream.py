@@ -106,6 +106,8 @@ def main():
         if not (appicons / icon.name).exists():
             raise RuntimeError(f'Unexpected app icon name {icon.name}')
         shutil.copy(icon, appicons / icon.name)
+    shutil.copy(ROOT / 'assets' / 'ui' / 'TooltipController.swift',
+                DEST / 'Packages' / 'TooltipUI' / 'Sources' / 'TooltipUI' / 'TooltipController.swift')
     install_shadow_observer()
     print(f'Prepared {DEST} from {PIN}')
 
