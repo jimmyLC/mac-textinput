@@ -95,6 +95,8 @@ struct BilingualRoutingTests {
             lexicon: EnglishLexicon(words: words), zhuyin: ZhuyinSyllableIndex(readings: readings)))
 
         let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("zlm-route-\(UUID().uuidString)")
+        DebugLog.shared = DebugLog(file: tmp.appendingPathComponent("dbg.txt"), defaults: UserDefaults(suiteName: "zlm-route-\(UUID().uuidString)")!)
+        DebugLog.shared.enabled = true
         UserDictionary.shared = UserDictionary(file: tmp.appendingPathComponent("ud.json"))
         LearningStore.shared = LearningStore(file: tmp.appendingPathComponent("l.json"))
         var failures = 0
@@ -175,6 +177,9 @@ struct BilingualRoutingTests {
         if !UserDictionary.shared.englishWords.contains("wibblesnork") { failures += 1; print("FAIL English word not learned: \(UserDictionary.shared.englishWords)") }
         _ = run("hello hello hello ")
         if UserDictionary.shared.englishWords.contains("hello") { failures += 1; print("FAIL common word learned") }
+        DebugLog.shared.flush()
+        let logged = (try? String(contentsOf: tmp.appendingPathComponent("dbg.txt"), encoding: .utf8)) ?? ""
+        if !logged.contains("key=c ") || !logged.contains("-> ") { failures += 1; print("FAIL debug log empty") }
         try? FileManager.default.removeItem(at: tmp)
         if failures > 0 { print("\(failures) routing failure(s)"); exit(1) }
         print("Bilingual routing: key replay cases passed")

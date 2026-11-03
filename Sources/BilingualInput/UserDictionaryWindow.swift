@@ -11,9 +11,10 @@ final class UserDictionaryWindowController: NSWindowController, NSTableViewDataS
     private let message = NSTextField(labelWithString: "")
     private var readingEdited = false
     private var learningBox: NSButton?
+    private var debugBox: NSButton?
 
     private init() {
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 520, height: 420),
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 560, height: 460),
                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.title = "個人詞典"
         window.isReleasedWhenClosed = false
@@ -26,6 +27,7 @@ final class UserDictionaryWindowController: NSWindowController, NSTableViewDataS
     func present() {
         table.reloadData()
         learningBox?.state = LearningStore.shared.enabled ? .on : .off
+        debugBox?.state = DebugLog.shared.enabled ? .on : .off
         message.stringValue = ""
         NSApp.activate(ignoringOtherApps: true)
         window?.center()
@@ -64,8 +66,16 @@ final class UserDictionaryWindowController: NSWindowController, NSTableViewDataS
         learningBox = learn
         let clear = NSButton(title: "清除學習資料", target: self, action: #selector(clearLearning))
         let learnRow = NSStackView(views: [learn, clear]); learnRow.spacing = 12
+        let logBox = NSButton(checkboxWithTitle: "記錄打字判斷（除錯用，24 小時後自動關閉）",
+                              target: self, action: #selector(toggleDebugLog(_:)))
+        logBox.state = DebugLog.shared.enabled ? .on : .off
+        debugBox = logBox
+        let logRow = NSStackView(views: [logBox,
+            NSButton(title: "清除記錄", target: self, action: #selector(clearDebugLog)),
+            NSButton(title: "在 Finder 顯示", target: self, action: #selector(revealDebugLog))])
+        logRow.spacing = 12
 
-        let stack = NSStackView(views: [hint, row, scroll, footer, learnRow])
+        let stack = NSStackView(views: [hint, row, scroll, footer, learnRow, logRow])
         stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 10
         stack.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(stack)
@@ -124,6 +134,23 @@ final class UserDictionaryWindowController: NSWindowController, NSTableViewDataS
     @objc private func toggleLearning(_ sender: NSButton) {
         LearningStore.shared.enabled = sender.state == .on
         message.stringValue = sender.state == .on ? "已開啟自動學習" : "已暫停自動學習"
+    }
+
+    @objc private func toggleDebugLog(_ sender: NSButton) {
+        DebugLog.shared.enabled = sender.state == .on
+        message.stringValue = sender.state == .on
+            ? "已開始記錄按鍵與判斷結果（只存在這台電腦，24 小時後自動關閉）" : "已停止記錄"
+    }
+
+    @objc private func clearDebugLog() {
+        DebugLog.shared.clear()
+        message.stringValue = "已清除記錄"
+    }
+
+    @objc private func revealDebugLog() {
+        let log = DebugLog.shared.file
+        if FileManager.default.fileExists(atPath: log.path) { NSWorkspace.shared.activateFileViewerSelecting([log]) }
+        else { message.stringValue = "目前沒有記錄檔" }
     }
 
     @objc private func clearLearning() {

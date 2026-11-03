@@ -66,3 +66,7 @@ swiftc Sources/BilingualPrototype/*.swift tests/bilingual_resolver.swift -o /tmp
 - After an English word of 4+ letters that is not in the lexicon or personal dictionary, the tooltip shows `修正拼字：word ⇥` when a known word (top 30k) is one edit away (swap, dropped, extra or wrong letter); the most frequent candidate wins, capitalisation is kept. Tab replaces the typed word and its space via `replacementRange` after checking the text before the caret matches; apps that do not report their text are left untouched.
 - Caps/Shift English mode now tracks runs too, so offers, spelling and learning work there; lowercase typos outside English mode still start as Zhuyin and are not seen.
 - Probably-typo words (a correction exists) are not auto-learned into the dictionary.
+
+## Debug log (opt-in, unverified on a real device)
+- 個人詞典 window checkbox 記錄打字判斷: writes `~/Library/Application Support/ZhuyinLM/debug-log.txt` (0600). One line per key: time, key, composing/run/mode state, resulting action, mode label. Off by default, auto-off after 24h, 7 days / 2 MB retention. Clear and show-in-Finder buttons.
+- Owner approved this exception to the "never log typed content" rule on 2026-11-04 (AGENTS.md updated). Keys can reveal typed text, so the file is never uploaded, committed, or read unless the owner asks.

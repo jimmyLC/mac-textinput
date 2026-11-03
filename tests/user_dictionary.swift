@@ -51,6 +51,24 @@ check(LearningStore(file: dir.appendingPathComponent("l.json")).state.repairShow
 ls.clear()
 check(ls.state.counts.isEmpty && ls.state.repairShown == 0 && ls.state.blocked.isEmpty, "clear")
 
+let suite = UserDefaults(suiteName: "zlm-test-\(UUID().uuidString)")!
+let log = DebugLog(file: dir.appendingPathComponent("debug.txt"), defaults: suite)
+log.record("key=a")
+log.flush()
+check(!FileManager.default.fileExists(atPath: log.file.path), "nothing written while logging is off")
+log.enabled = true
+log.record("key=b")
+log.flush()
+check((try? String(contentsOf: log.file, encoding: .utf8))?.contains("key=b") == true, "written while on")
+let perms = (try? FileManager.default.attributesOfItem(atPath: log.file.path))?[.posixPermissions] as? Int
+check(perms == 0o600, "owner-only permissions")
+log.prune(now: Date().addingTimeInterval(8 * 86400))
+check((try? String(contentsOf: log.file, encoding: .utf8))?.isEmpty == true, "entries older than 7 days pruned")
+suite.set(Date().addingTimeInterval(-25 * 3600), forKey: "DebugLogEnabledAt")
+check(!log.enabled, "auto-off after 24 hours")
+log.enabled = true; log.record("key=c"); log.flush(); log.clear()
+check(!FileManager.default.fileExists(atPath: log.file.path), "clear removes the file")
+
 try? FileManager.default.removeItem(at: dir)
 print(failures == 0 ? "user dictionary: OK" : "user dictionary: \(failures) failures")
 exit(failures == 0 ? 0 : 1)

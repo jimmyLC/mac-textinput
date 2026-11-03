@@ -166,6 +166,26 @@ final class BilingualInput {
         return tail.isEmpty ? nil : tail
     }
 
+    private func logDecision(_ event: NSEvent, composing: Bool, action: BilingualAction) {
+        guard DebugLog.shared.enabled else { return }
+        let key: String
+        if event.type == .flagsChanged { key = "mod\(event.keyCode)" }
+        else if let c = event.characters, c.count == 1, let s = c.unicodeScalars.first, s.value >= 0x21, s.value < 0x7F { key = c }
+        else { key = "code\(event.keyCode)" }
+        let act: String
+        switch action {
+        case .passThrough: act = "pass"
+        case .literal: act = "literal"
+        case .commitComposingThenLiteral: act = "commit+literal"
+        case .beginEnglish(let t): act = "beginEnglish(\(t))"
+        case .insert(let t): act = "insert(\(t))"
+        case .acceptOffer(let w): act = "acceptOffer(\(w))"
+        case .replaceTyped(let o, let n): act = "replace(\(o.trimmingCharacters(in: .whitespaces))>\(n.trimmingCharacters(in: .whitespaces)))"
+        case .repair(let b, let k): act = "repair(\(b),\(k))"
+        }
+        DebugLog.shared.record("key=\(key) composing=\(composing) run=\(englishRun) mode=\(englishMode ? "en" : "zh") prevEn=\(previousRunEnglish) -> \(act)" + (modeLabel.map { " label=\($0)" } ?? ""))
+    }
+
     /// Counts a finished uncommon English word; a word seen often enough joins the dictionary.
     /// After a finished, unknown English word, remember a one-edit correction to offer.
     private func offerSpellFix() {
@@ -197,6 +217,7 @@ final class BilingualInput {
     func decide(_ event: NSEvent, composing: Bool) -> BilingualAction {
         let wasOffering = repairOffering
         let action = decideKey(event, composing: composing)
+        logDecision(event, composing: composing, action: action)
         guard event.type == .keyDown else { return action }
         if case .repair = action {
             LearningStore.shared.recordRepairAccepted()
