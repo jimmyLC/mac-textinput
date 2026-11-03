@@ -24,6 +24,8 @@ SHADOW_FILES = [
     *sorted((ROOT / 'Sources' / 'BilingualPrototype').glob('*.swift')),
     ROOT / 'Sources' / 'BilingualInput' / 'BilingualInput.swift',
     ROOT / 'Sources' / 'BilingualInput' / 'BilingualInputController.swift',
+    ROOT / 'Sources' / 'BilingualInput' / 'UserDictionary.swift',
+    ROOT / 'Sources' / 'BilingualInput' / 'UserDictionaryWindow.swift',
 ]
 
 
@@ -61,6 +63,8 @@ def install_shadow_observer():
     # Show Traditional Chinese UI regardless of the system language order (this app only).
     replace(source / 'main.swift', 'import InputSourceHelper\n',
             'import InputSourceHelper\n\nUserDefaults.standard.set(["zh-Hant"], forKey: "AppleLanguages")\n')
+    replace(controller, '        menu.addItem(NSMenuItem.separator())\n        menu.addItem(\n            withTitle: NSLocalizedString("User Phrases", comment: ""), action: nil,',
+            '        menu.addItem(withTitle: "個人詞典…", action: #selector(openUserDictionary(_:)), keyEquivalent: "")\n        menu.addItem(NSMenuItem.separator())\n        menu.addItem(\n            withTitle: NSLocalizedString("User Phrases", comment: ""), action: nil,')
     replace(controller, 'private static let tooltipController', 'static let tooltipController')
     replace(controller, '        return result\n    }\n\n    // MARK: - Menu Items',
             '        bilingualAfterKey(client: client)\n        return result\n    }\n\n    // MARK: - Menu Items')

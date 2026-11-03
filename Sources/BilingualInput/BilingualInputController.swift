@@ -67,3 +67,9 @@ extension McBopomofoInputMethodController {
             tooltip: text, at: NSPoint(x: rect.origin.x, y: rect.origin.y - 4))
     }
 }
+
+extension McBopomofoInputMethodController {
+    @objc func openUserDictionary(_ sender: Any?) {
+        UserDictionaryWindowController.shared.present()
+    }
+}

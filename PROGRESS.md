@@ -45,3 +45,8 @@ swiftc Sources/BilingualPrototype/*.swift tests/bilingual_resolver.swift -o /tmp
 ```
 
 `docs/STAGE-0-1.md` 有驗收案例和系統註冊的診斷紀錄；`README.md` 有安裝限制。請依實際環境重新驗證當前狀態。
+
+## Personal dictionary (manual, unverified on a real device)
+- Menu item 個人詞典… opens a window to add/remove words. Store: `~/Library/Application Support/ZhuyinLM/user-dictionary.json`.
+- English words (letters only) rank first in the English lexicon and keep their capitalisation when offered (Tab); Chinese phrases are written to McBopomofo's `data.txt` with a reading (suggested from per-character readings, editable).
+- Limits: English entries cannot contain spaces/digits yet; Tab completion keeps the case the user already typed for the prefix. AI-assisted adding and typo auto-fix are not built.

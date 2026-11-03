@@ -18,6 +18,8 @@ final class BilingualInput {
 
     private let lock = NSLock()
     private var analyzer: BilingualAnalyzer?
+    private var baseWords: [String] = []
+    private var zhuyinIndex: ZhuyinSyllableIndex?
     private var buffer = ""            // keys typed since the composition started
     private var englishRun = false     // inside an English word: letters are literal
     private var runWord = ""           // lowercase letters of the current English word
@@ -41,12 +43,27 @@ final class BilingualInput {
               let en = try? String(contentsOf: res.appendingPathComponent("english-words.txt"), encoding: .utf8),
               let zh = try? String(contentsOf: res.appendingPathComponent("chinese-lexicon.tsv"), encoding: .utf8)
         else { return }
-        let words = en.split(separator: "\n").prefix(120_000).compactMap { $0.split(separator: "\t").first.map(String.init) }
-        let readings = zh.split(separator: "\n").compactMap { line -> String? in
-            let f = line.split(separator: "\t"); return f.count >= 3 ? String(f[2]) : nil
+        baseWords = en.split(separator: "\n").prefix(120_000).compactMap { $0.split(separator: "\t").first.map(String.init) }
+        var readings: [String] = []
+        var firstReading: [Character: String] = [:]
+        for line in zh.split(separator: "\n") {
+            let f = line.split(separator: "\t")
+            guard f.count >= 3 else { continue }
+            readings.append(String(f[2]))
+            if f[0].count == 1, let ch = f[0].first, let r = f[2].split(separator: "|").first { firstReading[ch] = String(r) }
         }
-        install(analyzer: BilingualAnalyzer(lexicon: EnglishLexicon(words: words),
-                                            zhuyin: ZhuyinSyllableIndex(readings: readings)))
+        UserDictionary.shared.characterReadings = firstReading
+        zhuyinIndex = ZhuyinSyllableIndex(readings: readings)
+        reloadUserWords()
+    }
+
+    /// Rebuilds the English lexicon so words added to the personal dictionary take effect.
+    func reloadUserWords() {
+        DispatchQueue.global(qos: .utility).async { [self] in
+            guard let zhuyin = zhuyinIndex else { return }
+            install(analyzer: BilingualAnalyzer(
+                lexicon: EnglishLexicon(words: baseWords, user: UserDictionary.shared.englishWords), zhuyin: zhuyin))
+        }
     }
 
     /// Supplies the analyzer directly (used by tests instead of the bundled data files).
@@ -63,10 +80,10 @@ final class BilingualInput {
         if englishRun {
             guard runWord.count >= 2, let word = analyzer?.lexicon.completion(for: runWord, top: 20_000),
                   word.count > runWord.count else { return nil }
-            return word
+            return analyzer?.lexicon.display(word) ?? word
         }
-        guard composing, let tail = letterTail(buffer) else { return nil }
-        return analyzer?.offer(for: tail)
+        guard composing, let tail = letterTail(buffer), let offered = analyzer?.offer(for: tail) else { return nil }
+        return analyzer?.lexicon.display(offered) ?? offered
     }
 
     private func startEnglish(_ ch: Character) {
@@ -126,10 +143,10 @@ final class BilingualInput {
         if event.keyCode == 48, let word = currentCompletion(composing: composing) {  // Tab accepts the offer
             if englishRun {
                 let suffix = String(word.dropFirst(runWord.count))
-                runWord = word
+                runWord = word.lowercased()
                 return .insert(suffix)
             }
-            englishRun = true; runWord = word; buffer = ""
+            englishRun = true; runWord = word.lowercased(); buffer = ""
             return .acceptOffer(word)
         }
         guard let chars = event.characters, chars.count == 1, let scalar = chars.unicodeScalars.first,

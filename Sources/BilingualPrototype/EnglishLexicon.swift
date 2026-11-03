@@ -7,12 +7,17 @@ struct EnglishLexicon {
     private let prefixes: Set<String>
     private let ordered: [String]   // input order (callers pass most frequent first)
     private let rank: [String: Int]
+    private let shown: [String: String]   // lowercase -> user's spelling (e.g. "myjav" -> "MyJAV")
 
-    init<S: Sequence>(words source: S) where S.Element == String {
+    /// `user` words are ranked ahead of everything else and keep their own capitalisation.
+    init<S: Sequence>(words source: S, user: [String] = []) where S.Element == String {
+        var shown = [String: String]()
+        for w in user { shown[w.lowercased()] = w }
+        self.shown = shown
         var words = Set<String>()
         var prefixes = Set<String>()
         var ordered: [String] = []
-        for candidate in source {
+        for candidate in Array(user) + Array(source) {
             let word = candidate.lowercased()
             guard !word.isEmpty, word.unicodeScalars.allSatisfy({ (97...122).contains($0.value) }) else { continue }
             if words.insert(word).inserted { ordered.append(word) }
@@ -29,6 +34,9 @@ struct EnglishLexicon {
         for (i, w) in ordered.enumerated() { rank[w] = i }
         self.rank = rank
     }
+
+    /// Spelling to show for a word (user dictionary capitalisation when present).
+    func display(_ word: String) -> String { shown[word.lowercased()] ?? word }
 
     func contains(_ value: String) -> Bool { words.contains(value.lowercased()) }
     func containsPrefix(_ value: String) -> Bool { !value.isEmpty && prefixes.contains(value.lowercased()) }

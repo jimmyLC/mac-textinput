@@ -18,9 +18,11 @@ xcodebuild -project "$ROOT/.build/McBopomofo/McBopomofo.xcodeproj" \
 BIN="$(mktemp -d)"
 PROTO=("$ROOT"/Sources/BilingualPrototype/*.swift)
 swiftc "${PROTO[@]}" "$ROOT/tests/bilingual_resolver.swift" -o "$BIN/resolver"
+swiftc "${PROTO[@]}" "$ROOT/Sources/BilingualInput/UserDictionary.swift" "$ROOT/tests/user_dictionary.swift" -o "$BIN/userdict"
 swiftc "${PROTO[@]}" "$ROOT/tests/bilingual_analyzer.swift" -o "$BIN/analyzer"
-swiftc "${PROTO[@]}" "$ROOT/Sources/BilingualInput/BilingualInput.swift" "$ROOT/tests/bilingual_routing.swift" -o "$BIN/routing"
+swiftc "${PROTO[@]}" "$ROOT/Sources/BilingualInput/BilingualInput.swift" "$ROOT/Sources/BilingualInput/UserDictionary.swift" "$ROOT/tests/bilingual_routing.swift" -o "$BIN/routing"
 "$BIN/resolver"
+"$BIN/userdict"
 "$BIN/analyzer" "$ROOT"
 "$BIN/routing" "$ROOT"
 rm -rf "$BIN"
