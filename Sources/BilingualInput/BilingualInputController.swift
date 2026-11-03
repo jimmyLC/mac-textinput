@@ -10,19 +10,23 @@ extension McBopomofoInputMethodController {
         case .passThrough:
             return nil
         case .literal:
+            spaceAfterChineseIfNeeded(client: client)
             showCompletion(client: client)
             return false
         case .commitComposingThenLiteral:
             commitComposing(client: client)
+            spaceAfterChineseIfNeeded(client: client)
             showCompletion(client: client)
             return false
         case .beginEnglish(let text):
             commitComposing(client: client)  // also drops the pending Zhuyin reading
+            spaceAfterChineseIfNeeded(client: client)
             (client as? IMKTextInput)?.insertText(text, replacementRange: NSRange(location: NSNotFound, length: NSNotFound))
             showCompletion(client: client)
             return true
         case .acceptOffer(let word):
             commitComposing(client: client)  // keeps the Chinese typed so far, drops the pending reading
+            spaceAfterChineseIfNeeded(client: client)
             (client as? IMKTextInput)?.insertText(word, replacementRange: NSRange(location: NSNotFound, length: NSNotFound))
             showBilingualTooltip(nil, client: client)
             return true
@@ -40,6 +44,17 @@ extension McBopomofoInputMethodController {
             showBilingualTooltip(nil, client: client)
             return true
         }
+    }
+
+    /// When an English word starts right after Chinese text, put a space between them.
+    private func spaceAfterChineseIfNeeded(client: Any!) {
+        guard BilingualInput.shared.takeRunStart(), ScriptSpacing.enabled,
+              let text = client as? IMKTextInput else { return }
+        let caret = text.selectedRange()
+        guard caret.location != NSNotFound, caret.location > 0,
+              let previous = text.attributedSubstring(from: NSRange(location: caret.location - 1, length: 1))?.string.first,
+              ScriptSpacing.needsSpace(before: previous) else { return }
+        text.insertText(" ", replacementRange: NSRange(location: NSNotFound, length: NSNotFound))
     }
 
     /// Commit the underlined composing text, keeping the Chinese the user already typed.

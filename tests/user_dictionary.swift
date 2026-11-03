@@ -69,6 +69,9 @@ check(!log.enabled, "auto-off after 24 hours")
 log.enabled = true; log.record("key=c"); log.flush(); log.clear()
 check(!FileManager.default.fileExists(atPath: log.file.path), "clear removes the file")
 
+check(ScriptSpacing.needsSpace(before: "好") && ScriptSpacing.needsSpace(before: "ㄅ"), "space after Han/Bopomofo")
+check(!ScriptSpacing.needsSpace(before: "，") && !ScriptSpacing.needsSpace(before: "a") && !ScriptSpacing.needsSpace(before: " ") && !ScriptSpacing.needsSpace(before: nil), "no space after punctuation, Latin, space or nothing")
+
 try? FileManager.default.removeItem(at: dir)
 print(failures == 0 ? "user dictionary: OK" : "user dictionary: \(failures) failures")
 exit(failures == 0 ? 0 : 1)

@@ -27,6 +27,7 @@ final class BilingualInput {
     private var done: [String] = []    // finished syllables of this composition, keys incl. tone key
     private var buffer = ""            // keys typed since the composition started
     private var englishRun = false     // inside an English word: letters are literal
+    private var runStarted = false     // this key began an English run
     private var runPure = false        // the run so far is letters only (a whole word)
     private var repairOffering = false // a tone fix is currently offered
     private var runWord = ""           // lowercase letters of the current English word
@@ -122,7 +123,11 @@ final class BilingualInput {
         return analyzer?.lexicon.display(offered) ?? offered
     }
 
+    /// True once after a key that began an English run (lets the controller add a space after Chinese).
+    func takeRunStart() -> Bool { defer { runStarted = false }; return runStarted }
+
     private func startEnglish(_ ch: Character) {
+        runStarted = true
         pending = ""; done = []
         englishRun = true
         runPure = ch.isLetter
@@ -225,6 +230,7 @@ final class BilingualInput {
 
     func decide(_ event: NSEvent, composing: Bool) -> BilingualAction {
         let wasOffering = repairOffering
+        runStarted = false
         let action = decideKey(event, composing: composing)
         logDecision(event, composing: composing, action: action)
         guard event.type == .keyDown else { return action }
@@ -266,7 +272,7 @@ final class BilingualInput {
                 runWord = word.lowercased(); runTyped += suffix
                 return .insert(suffix)
             }
-            englishRun = true; runWord = word.lowercased(); runTyped = word; buffer = ""
+            englishRun = true; runStarted = true; runWord = word.lowercased(); runTyped = word; buffer = ""
             pending = ""; done = []
             return .acceptOffer(word)
         }
@@ -318,7 +324,7 @@ final class BilingualInput {
         guard ch.isASCII, ch.isLowercase, let tail = letterTail(buffer) else { return .passThrough }
         lock.lock(); let analyzer = self.analyzer; lock.unlock()
         if analyzer?.startsEnglish(tail, previousRunEnglish: previousRunEnglish) == true {
-            englishRun = true; runWord = tail; runTyped = tail; buffer = ""
+            englishRun = true; runStarted = true; runWord = tail; runTyped = tail; buffer = ""
             pending = ""; done = []
             return .beginEnglish(tail)
         }

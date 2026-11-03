@@ -110,6 +110,15 @@ struct BilingualRoutingTests {
         check("up ", "[Zh:up]")                         // 因 (ㄧㄣ): a 2-letter word must not win
         check("hello{shift}su3 ", "hello[Zh:su3]")      // Shift tap ends the English word and returns to Chinese
         check("hello su3 up ", "hello [Zh:su3][Zh:up]") // a finished Chinese syllable resets the English context
+        // A key that begins an English run is flagged once, so the controller can add the space.
+        input0: do {
+            let i = BilingualInput.shared
+            i.reset()
+            _ = i.decide(event("H", shift: true), composing: true)
+            if !i.takeRunStart() || i.takeRunStart() { failures += 1; print("FAIL run-start flag") }
+            _ = i.decide(event("i"), composing: false)
+            if i.takeRunStart() { failures += 1; print("FAIL run-start flag set mid-word") }
+        }
         check("su3cl3co ", "[Zh:su3cl3co]")            // 黑 (ㄏㄟ) after Chinese must not become "co"
         check("co ", "[Zh:co]")
         check("co3", "[Zh:co3]")

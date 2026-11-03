@@ -70,3 +70,7 @@ swiftc Sources/BilingualPrototype/*.swift tests/bilingual_resolver.swift -o /tmp
 ## Debug log (opt-in, unverified on a real device)
 - 個人詞典 window checkbox 記錄打字判斷: writes `~/Library/Application Support/ZhuyinLM/debug-log.txt` (0600). One line per key: time, key, composing/run/mode state, resulting action, mode label. Off by default, auto-off after 24h, 7 days / 2 MB retention. Clear and show-in-Finder buttons.
 - Owner approved this exception to the "never log typed content" rule on 2026-11-04 (AGENTS.md updated). Keys can reveal typed text, so the file is never uploaded, committed, or read unless the owner asks.
+
+## Auto space between Chinese and English (unverified on a real device)
+- When an English run begins right after Chinese text (committed, or just committed from the composing buffer), a space is inserted first. Checked by reading the character before the caret; apps that do not report their text get no space. Toggle in the 個人詞典 window (default on).
+- English followed directly by Chinese with no typed space is still undetectable; space or Shift tap ends the English word.
