@@ -14,7 +14,7 @@ struct PhraseRepair {
     private var known: Set<String> = []           // exact toned readings
     private var charScore: [String: Double] = [:]   // best single-character score per toned syllable
     private let minScore: Double
-    private let margin: Double
+    var margin: Double
 
     /// `lines` are lexicon rows `word<TAB>score<TAB>reading|reading` (score = log probability).
     init<S: Sequence>(lines: S, minScore: Double = -6.5, margin: Double = 1.5) where S.Element == Substring {

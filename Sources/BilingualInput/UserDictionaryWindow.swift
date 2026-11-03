@@ -10,9 +10,10 @@ final class UserDictionaryWindowController: NSWindowController, NSTableViewDataS
     private let readingField = NSTextField()
     private let message = NSTextField(labelWithString: "")
     private var readingEdited = false
+    private var learningBox: NSButton?
 
     private init() {
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 460, height: 400),
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 520, height: 420),
                               styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.title = "個人詞典"
         window.isReleasedWhenClosed = false
@@ -24,6 +25,7 @@ final class UserDictionaryWindowController: NSWindowController, NSTableViewDataS
 
     func present() {
         table.reloadData()
+        learningBox?.state = LearningStore.shared.enabled ? .on : .off
         message.stringValue = ""
         NSApp.activate(ignoringOtherApps: true)
         window?.center()
@@ -56,8 +58,14 @@ final class UserDictionaryWindowController: NSWindowController, NSTableViewDataS
         let remove = NSButton(title: "刪除選取的詞", target: self, action: #selector(removeSelected))
         message.font = .systemFont(ofSize: 12); message.textColor = .secondaryLabelColor
         let footer = NSStackView(views: [remove, message]); footer.spacing = 12
+        let learn = NSButton(checkboxWithTitle: "自動學習常打的英文字（只記次數）",
+                             target: self, action: #selector(toggleLearning(_:)))
+        learn.state = LearningStore.shared.enabled ? .on : .off
+        learningBox = learn
+        let clear = NSButton(title: "清除學習資料", target: self, action: #selector(clearLearning))
+        let learnRow = NSStackView(views: [learn, clear]); learnRow.spacing = 12
 
-        let stack = NSStackView(views: [hint, row, scroll, footer])
+        let stack = NSStackView(views: [hint, row, scroll, footer, learnRow])
         stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 10
         stack.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(stack)
@@ -106,17 +114,28 @@ final class UserDictionaryWindowController: NSWindowController, NSTableViewDataS
         for entry in removed {
             store.remove(word: entry.word)
             if entry.reading != nil { ChinesePhraseFile.remove(entry.word) }
+            if entry.auto == true { LearningStore.shared.block(entry.word.lowercased()) }
         }
         BilingualInput.shared.reloadUserWords()
         message.stringValue = removed.isEmpty ? "請先選取要刪除的詞" : "已刪除 \(removed.count) 個詞"
         table.reloadData()
     }
 
+    @objc private func toggleLearning(_ sender: NSButton) {
+        LearningStore.shared.enabled = sender.state == .on
+        message.stringValue = sender.state == .on ? "已開啟自動學習" : "已暫停自動學習"
+    }
+
+    @objc private func clearLearning() {
+        LearningStore.shared.clear()
+        message.stringValue = "已清除學習資料（個人詞典裡的詞不受影響）"
+    }
+
     func numberOfRows(in tableView: NSTableView) -> Int { store.entries.count }
 
     func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
         let entry = store.entries[row]
-        let text = tableColumn?.identifier.rawValue == "word" ? entry.word : (entry.reading ?? "英文")
+        let text = tableColumn?.identifier.rawValue == "word" ? entry.word : (entry.reading ?? (entry.auto == true ? "英文（自動學習）" : "英文"))
         let cell = NSTextField(labelWithString: text)
         return cell
     }

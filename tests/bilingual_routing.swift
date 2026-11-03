@@ -92,6 +92,9 @@ struct BilingualRoutingTests {
         BilingualInput.shared.install(analyzer: BilingualAnalyzer(
             lexicon: EnglishLexicon(words: words), zhuyin: ZhuyinSyllableIndex(readings: readings)))
 
+        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("zlm-route-\(UUID().uuidString)")
+        UserDictionary.shared = UserDictionary(file: tmp.appendingPathComponent("ud.json"))
+        LearningStore.shared = LearningStore(file: tmp.appendingPathComponent("l.json"))
         var failures = 0
         func check(_ keys: String, _ expected: String) {
             let actual = run(keys)
@@ -157,6 +160,12 @@ struct BilingualRoutingTests {
         input.reset()
         for ch in "su3cl3" { _ = input.decide(event(ch), composing: true) }
         if input.currentRepair(composing: true) != nil { failures += 1; print("FAIL repair offered for 你好") }
+        // Learning: an uncommon English word typed three times joins the dictionary.
+        for _ in 0..<3 { _ = run("Wibblesnork ") }
+        if !UserDictionary.shared.englishWords.contains("wibblesnork") { failures += 1; print("FAIL English word not learned: \(UserDictionary.shared.englishWords)") }
+        _ = run("hello hello hello ")
+        if UserDictionary.shared.englishWords.contains("hello") { failures += 1; print("FAIL common word learned") }
+        try? FileManager.default.removeItem(at: tmp)
         if failures > 0 { print("\(failures) routing failure(s)"); exit(1) }
         print("Bilingual routing: key replay cases passed")
     }

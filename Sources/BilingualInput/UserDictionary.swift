@@ -6,13 +6,14 @@ import Foundation
 struct UserDictionaryEntry: Codable, Equatable {
     var word: String
     var reading: String?   // Chinese only, syllables joined with "-"
+    var auto: Bool?        // true when learned from typing rather than added by hand
     var isEnglish: Bool { reading == nil }
 }
 
 enum UserDictionaryError: Error { case empty, invalidEnglish, missingReading, duplicate }
 
 final class UserDictionary {
-    static let shared = UserDictionary(
+    static var shared = UserDictionary(
         file: FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("ZhuyinLM/user-dictionary.json"))
 
@@ -41,13 +42,13 @@ final class UserDictionary {
     }
 
     @discardableResult
-    func add(word raw: String, reading rawReading: String?) throws -> UserDictionaryEntry {
+    func add(word raw: String, reading rawReading: String?, auto: Bool = false) throws -> UserDictionaryEntry {
         let word = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !word.isEmpty else { throw UserDictionaryError.empty }
         var entry: UserDictionaryEntry
         if word.unicodeScalars.allSatisfy({ $0.isASCII }) {
             guard Self.isEnglishWord(word) else { throw UserDictionaryError.invalidEnglish }
-            entry = UserDictionaryEntry(word: word, reading: nil)
+            entry = UserDictionaryEntry(word: word, reading: nil, auto: auto ? true : nil)
         } else {
             let reading = (rawReading?.trimmingCharacters(in: .whitespaces)).flatMap { $0.isEmpty ? nil : $0 }
                 ?? suggestedReading(for: word)

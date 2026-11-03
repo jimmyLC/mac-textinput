@@ -55,3 +55,9 @@ swiftc Sources/BilingualPrototype/*.swift tests/bilingual_resolver.swift -o /tmp
 - `PhraseRepair`: when the last 2-5 typed syllables form no known phrase but changing exactly one tone gives a clearly likelier one (score >= -6.5 and 1.5 better than reading the syllables as separate characters), the tooltip shows `修正聲調：詞 ⇥`. Tab deletes those syllables (synthetic Backspace) and retypes them with the corrected tone through the normal key handler.
 - Offline numbers on the bundled lexicon: ~78% of one-tone slips in common phrases recovered; ~6% of ordinary word boundaries are flagged.
 - Not built yet: automatic (no-Tab) fix, wrong initial/final slips, homophone selection, fixes after commit.
+
+## Local learning (layer 1, unverified on a real device)
+- `LearningStore` (`~/Library/Application Support/ZhuyinLM/learning.json`): counts of uncommon English words (letters only, 3-20 letters, outside the top-20k common words); a word seen 3 times joins the personal dictionary as an auto entry. Removing an auto entry blocks it from being learned again.
+- Tone-fix offers: counters of offers shown/accepted adjust the required margin (1.0-2.5) once 30 offers exist.
+- Never stored: sentences, Chinese text, common words. Pause and clear buttons are in the 個人詞典 window. macOS bypasses third-party IMEs in secure (password) fields.
+- Only English words typed as an English run are learned (capital first letter, Shift/Caps mode, or after English); lowercase uncommon words still parse as Zhuyin, so they are not seen.

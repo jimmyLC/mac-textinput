@@ -26,6 +26,8 @@ final class BilingualInput {
     private var done: [String] = []    // finished syllables of this composition, keys incl. tone key
     private var buffer = ""            // keys typed since the composition started
     private var englishRun = false     // inside an English word: letters are literal
+    private var runPure = false        // the run so far is letters only (a whole word)
+    private var repairOffering = false // a tone fix is currently offered
     private var runWord = ""           // lowercase letters of the current English word
     private var previousRunEnglish = false
     private var englishMode = false    // persistent mode (Caps Lock or Shift tap)
@@ -119,6 +121,7 @@ final class BilingualInput {
     private func startEnglish(_ ch: Character) {
         pending = ""; done = []
         englishRun = true
+        runPure = ch.isLetter
         runWord = ch.isLetter ? String(ch).lowercased() : ""
         buffer = ""
     }
@@ -157,7 +160,35 @@ final class BilingualInput {
         return tail.isEmpty ? nil : tail
     }
 
+    /// Counts a finished uncommon English word; a word seen often enough joins the dictionary.
+    private func learnEnglish(_ word: String) {
+        guard runPure, word.count >= 3 else { return }
+        lock.lock(); let analyzer = self.analyzer; lock.unlock()
+        guard let lexicon = analyzer?.lexicon, !lexicon.isCommon(word, top: 20_000),
+              !UserDictionary.shared.englishWords.contains(where: { $0.lowercased() == word }) else { return }
+        if LearningStore.shared.recordEnglish(word),
+           (try? UserDictionary.shared.add(word: word, reading: nil, auto: true)) != nil {
+            reloadUserWords()
+        }
+    }
+
     func decide(_ event: NSEvent, composing: Bool) -> BilingualAction {
+        let wasOffering = repairOffering
+        let action = decideKey(event, composing: composing)
+        guard event.type == .keyDown else { return action }
+        if case .repair = action {
+            LearningStore.shared.recordRepairAccepted()
+            repairOffering = false
+            return action
+        }
+        repairEngine?.margin = LearningStore.shared.repairMargin
+        let offering = currentRepair(composing: true) != nil
+        if offering && !wasOffering { LearningStore.shared.recordRepairShown() }
+        repairOffering = offering
+        return action
+    }
+
+    private func decideKey(_ event: NSEvent, composing: Bool) -> BilingualAction {
         if event.type == .flagsChanged { return decideModifiers(event, composing: composing) }
         guard event.type == .keyDown else { return .passThrough }
         modeLabel = nil
@@ -193,9 +224,10 @@ final class BilingualInput {
 
         if englishRun {
             if Self.runCharacters.contains(ch) {
-                if ch.isLetter { runWord.append(Character(ch.lowercased())) } else { runWord = "" }
+                if ch.isLetter { runWord.append(Character(ch.lowercased())) } else { runWord = ""; runPure = false }
                 return .literal
             }
+            learnEnglish(runWord)
             englishRun = false; runWord = ""
             previousRunEnglish = true
             return ch == " " ? .literal : .passThrough

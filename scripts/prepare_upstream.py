@@ -26,6 +26,7 @@ SHADOW_FILES = [
     ROOT / 'Sources' / 'BilingualInput' / 'BilingualInputController.swift',
     ROOT / 'Sources' / 'BilingualInput' / 'UserDictionary.swift',
     ROOT / 'Sources' / 'BilingualInput' / 'PhraseRepair.swift',
+    ROOT / 'Sources' / 'BilingualInput' / 'LearningStore.swift',
     ROOT / 'Sources' / 'BilingualInput' / 'UserDictionaryWindow.swift',
 ]
 

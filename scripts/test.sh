@@ -18,10 +18,10 @@ xcodebuild -project "$ROOT/.build/McBopomofo/McBopomofo.xcodeproj" \
 BIN="$(mktemp -d)"
 PROTO=("$ROOT"/Sources/BilingualPrototype/*.swift)
 swiftc "${PROTO[@]}" "$ROOT/tests/bilingual_resolver.swift" -o "$BIN/resolver"
-swiftc "${PROTO[@]}" "$ROOT/Sources/BilingualInput/UserDictionary.swift" "$ROOT/tests/user_dictionary.swift" -o "$BIN/userdict"
+swiftc "${PROTO[@]}" "$ROOT/Sources/BilingualInput/UserDictionary.swift" "$ROOT/Sources/BilingualInput/LearningStore.swift" "$ROOT/tests/user_dictionary.swift" -o "$BIN/userdict"
 swiftc "${PROTO[@]}" "$ROOT/Sources/BilingualInput/PhraseRepair.swift" "$ROOT/tests/phrase_repair.swift" -o "$BIN/repair"
 swiftc "${PROTO[@]}" "$ROOT/tests/bilingual_analyzer.swift" -o "$BIN/analyzer"
-swiftc "${PROTO[@]}" "$ROOT/Sources/BilingualInput/BilingualInput.swift" "$ROOT/Sources/BilingualInput/UserDictionary.swift" "$ROOT/Sources/BilingualInput/PhraseRepair.swift" "$ROOT/tests/bilingual_routing.swift" -o "$BIN/routing"
+swiftc "${PROTO[@]}" "$ROOT/Sources/BilingualInput/BilingualInput.swift" "$ROOT/Sources/BilingualInput/UserDictionary.swift" "$ROOT/Sources/BilingualInput/PhraseRepair.swift" "$ROOT/Sources/BilingualInput/LearningStore.swift" "$ROOT/tests/bilingual_routing.swift" -o "$BIN/routing"
 "$BIN/resolver"
 "$BIN/userdict"
 "$BIN/repair" "$ROOT"

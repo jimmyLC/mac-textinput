@@ -26,6 +26,24 @@ check(lex.completion(for: "my", top: 20) == "myjav", "user word wins completion"
 check(lex.display("myjav") == "MyJAV", "user spelling kept")
 check(lex.isCommon("myjav", top: 5), "user word counts as common")
 
+let ls = LearningStore(file: dir.appendingPathComponent("l.json"))
+check(!ls.recordEnglish("kubernetes") && !ls.recordEnglish("kubernetes"), "not learned before threshold")
+check(ls.recordEnglish("kubernetes"), "learned at threshold")
+check(!ls.recordEnglish("ab") && !ls.recordEnglish("has2"), "short or non-letter words ignored")
+ls.block("terraform")
+check(!ls.recordEnglish("terraform") && !ls.recordEnglish("terraform") && !ls.recordEnglish("terraform"), "blocked word never learned")
+ls.enabled = false
+check(!ls.recordEnglish("grafana") && ls.state.counts["grafana"] == nil, "paused learning records nothing")
+ls.enabled = true
+check(ls.repairMargin == 1.5, "default margin")
+for _ in 0..<40 { ls.recordRepairShown() }
+check(ls.repairMargin == 2.5, "ignored offers raise the margin")
+for _ in 0..<30 { ls.recordRepairAccepted() }
+check(ls.repairMargin == 1.0, "accepted offers lower the margin")
+check(LearningStore(file: dir.appendingPathComponent("l.json")).state.repairShown == 40, "learning persisted")
+ls.clear()
+check(ls.state.counts.isEmpty && ls.state.repairShown == 0 && ls.state.blocked.isEmpty, "clear")
+
 try? FileManager.default.removeItem(at: dir)
 print(failures == 0 ? "user dictionary: OK" : "user dictionary: \(failures) failures")
 exit(failures == 0 ? 0 : 1)
