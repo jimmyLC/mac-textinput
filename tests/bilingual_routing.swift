@@ -16,30 +16,66 @@ struct BilingualRoutingTests {
                          isARepeat: false, keyCode: code)!
     }
 
-    static func run(_ keys: String) -> String {
+    static func modifier(_ code: Int64, flags: CGEventFlags) -> NSEvent {
+        let cg = CGEvent(source: nil)!
+        cg.type = .flagsChanged
+        cg.setIntegerValueField(.keyboardEventKeycode, value: code)
+        cg.flags = flags
+        return NSEvent(cgEvent: cg)!
+    }
+
+    /// Keys: normal characters, "\n" Return, "\u{8}" Backspace, "{shift}" a lone Shift tap,
+    /// "{caps}" Caps Lock toggle. Returns what reached the client; "[Zh:..]" marks keys left
+    /// to the Zhuyin engine (committed Chinese).
+    static func run(_ keys: String, startPrevious english: Bool = false) -> String {
         let input = BilingualInput.shared
         input.reset()
         var out = ""
-        var composing = false
-        var zh = ""          // keys the Zhuyin engine is holding
-        for ch in keys {
-            let ev = ch == "\n" ? key(36, "\r") : event(ch, shift: ch.isUppercase)
+        var zh = ""
+        var composing: Bool { !zh.isEmpty }
+        var caps = false
+        func flush() { if !zh.isEmpty { out += "[Zh:\(zh)]" }; zh = "" }
+        var tokens: [String] = []
+        var i = keys.startIndex
+        while i < keys.endIndex {
+            if keys[i] == "{", let close = keys[i...].firstIndex(of: "}") {
+                tokens.append(String(keys[i...close])); i = keys.index(after: close)
+            } else { tokens.append(String(keys[i])); i = keys.index(after: i) }
+        }
+        for token in tokens {
+            if token == "{shift}" {
+                _ = input.decide(modifier(56, flags: .maskShift), composing: composing)
+                let action = input.decide(modifier(56, flags: []), composing: composing)
+                if case .beginEnglish(let t) = action { zh = String(zh.dropLast(t.count)); flush(); out += t }
+                continue
+            }
+            if token == "{caps}" {
+                caps.toggle()
+                _ = input.decide(modifier(57, flags: caps ? .maskAlphaShift : []), composing: composing)
+                continue
+            }
+            let ch = token.first!
+            let ev: NSEvent = ch == "\n" ? key(36, "\r") : ch == "\t" ? key(48, "\t") : ch == "\u{8}" ? key(51, "\u{7F}") : event(ch, shift: ch.isUppercase)
             switch input.decide(ev, composing: composing) {
             case .passThrough:
-                if ch == " " || ch == "\n" { if !zh.isEmpty { out += "[Zh:\(zh)]" }; zh = ""; composing = false }
-                else { zh.append(ch); composing = true }
+                if ch == "\u{8}" { if !zh.isEmpty { zh.removeLast() } }
+                else if ch == " " || ch == "\n" { flush() }
+                else { zh.append(ch) }
             case .literal:
                 out.append(ch)
             case .commitComposingThenLiteral:
-                if !zh.isEmpty { out += "[Zh:\(zh)]" }; zh = ""; composing = false; out.append(ch)
-            case .commit(let t):
-                out += t; zh = ""; composing = false
-            case .replay(let head, let t):
-                out += "[Zh:\(head)]" + t; zh = ""; composing = false
-            case .toggled: break
+                flush(); out.append(ch)
+            case .beginEnglish(let t):
+                // The triggering key was consumed, so the engine holds only t.count - 1 of the letters.
+                zh = String(zh.dropLast(max(t.count - 1, 0))); flush(); out += t
+            case .insert(let t):
+                out += t
+            case .acceptOffer(let word):
+                let tail = String(zh.reversed().prefix { $0.isLowercase && $0.isASCII }.reversed())
+                zh = String(zh.dropLast(tail.count)); flush(); out += word
             }
         }
-        if !zh.isEmpty { out += "[Zh:\(zh)]" }
+        flush()
         return out
     }
 
@@ -59,24 +95,38 @@ struct BilingualRoutingTests {
             let actual = run(keys)
             if actual != expected { failures += 1; print("FAIL \(keys.debugDescription): expected \(expected.debugDescription), got \(actual.debugDescription)") }
         }
-        check("hello ", "hello ")                       // English, committed raw
-        check("run ", "run ")                           // also valid toneless Zhuyin
+        check("hello ", "hello ")                       // English: "he" is a word that is not Zhuyin
+        check("run ", "run ")                           // 3+ letters beat toneless Zhuyin
         check("su3cl3 ", "[Zh:su3cl3]")                 // Chinese stays with the Zhuyin engine
-        check("su3cl3hello ", "[Zh:su3cl3]hello ")      // Chinese then English
-        check("su3cl3Mac ", "[Zh:su3cl3]Mac ")          // capitals: commit composition, then literal
+        check("up ", "[Zh:up]")                         // 因 (ㄧㄣ): a 2-letter word must not win
+        check("hello up ", "hello up ")                 // ...but after English it is English
+        check("su3cl3hello ", "[Zh:su3cl3]hello ")      // Chinese then English; Chinese is kept
+        check("su3cl3 hello ", "[Zh:su3cl3]hello ")     // Chinese already in the underlined buffer
+        check("su3cl3 buy ", "[Zh:su3cl3]buy ")         // the reported "BUY" case, lowercase
+        check("su3cl3 BUY ", "[Zh:su3cl3]BUY ")         // ...and uppercase
+        check("su3cl3Mac ", "[Zh:su3cl3]Mac ")
         check("Mac ", "Mac ")
         check("https://example.com ", "https://example.com ")
-        check("hello\n", "hello")                       // Return commits displayed English
         check("wu0wu0 ", "[Zh:wu0wu0]")                 // toneless Chinese phrase
-        check("hel ", "hel ")                           // typo-prefix commits as typed English
-        // Backspace removes the last key from the run.
+        check("su3x\u{8}cl3 ", "[Zh:su3cl3]")           // backspace removes the last key
+        check("{caps}hello su3{caps}su3 ", "hello su3[Zh:su3]")   // Caps Lock = English mode
+        check("{shift}hello su3{shift}su3 ", "hello su3[Zh:su3]") // Shift tap toggles when idle
+        check("sucl{shift}", "sucl")                    // Shift while letters pending: they were English
+        // Offer beside pending Zhuyin; Tab keeps the Chinese and takes the English word.
+        BilingualInput.shared.reset()
+        for ch in "su3cl3" { _ = BilingualInput.shared.decide(event(ch), composing: true) }
+        for ch in "dat" { _ = BilingualInput.shared.decide(event(ch), composing: true) }
+        let offered = BilingualInput.shared.currentCompletion(composing: true)
+        precondition(offered?.hasPrefix("dat") == true, "no offer for dat: \(offered ?? "nil")")
+        check("su3cl3dat\t", "[Zh:su3cl3]" + (offered ?? "?"))
+        // Completion offer for the English word being typed.
         let input = BilingualInput.shared
         input.reset()
-        var c = true
-        for ch in "helx" { _ = input.decide(event(ch), composing: c) }
-        _ = input.decide(key(51, "\u{7F}"), composing: c)
-        c = true
-        if case .commit(let t) = input.decide(event(" "), composing: c) { precondition(t == "hel ", t) } else { failures += 1; print("FAIL backspace") }
+        for ch in "fun" { _ = input.decide(event(ch), composing: ch != "f") }
+        precondition(input.currentCompletion().map { $0.count > 3 } == true, "no completion for fun")
+        if case .insert(let suffix) = input.decide(key(48, "\t"), composing: false) {
+            precondition(!suffix.isEmpty)
+        } else { failures += 1; print("FAIL Tab completion") }
         if failures > 0 { print("\(failures) routing failure(s)"); exit(1) }
         print("Bilingual routing: key replay cases passed")
     }

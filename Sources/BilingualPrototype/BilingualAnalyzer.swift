@@ -104,3 +104,24 @@ extension BilingualAnalyzer {
         return body.count >= 3 && lexicon.containsPrefix(body) && zhuyin.parse(body) != .complete
     }
 }
+
+extension BilingualAnalyzer {
+    /// Whether the lowercase letters typed so far already form an English word, so the run
+    /// switches to English. Two-letter words are ambiguous with common Zhuyin syllables
+    /// ("up" is also ㄧㄣ, 因), so they need English context or must not parse as Zhuyin.
+    func startsEnglish(_ tail: String, previousRunEnglish: Bool) -> Bool {
+        // Common words only: the word list also holds rare tokens ("su") that must not trigger English.
+        guard tail.count >= 2, tail.allSatisfy({ $0.isASCII && $0.isLowercase }),
+              lexicon.isCommon(tail, top: tail.count == 2 ? 3_000 : 60_000) else { return false }
+        if tail.count >= 3 { return true }
+        return previousRunEnglish || zhuyin.parse(tail) != .complete
+    }
+}
+
+extension BilingualAnalyzer {
+    /// English offer shown next to Zhuyin that is still being typed (Tab accepts it).
+    func offer(for tail: String) -> String? {
+        guard !tail.isEmpty, tail.allSatisfy({ $0.isASCII && $0.isLowercase }) else { return nil }
+        return lexicon.completion(for: tail, top: 20_000)
+    }
+}
