@@ -50,3 +50,8 @@ swiftc Sources/BilingualPrototype/*.swift tests/bilingual_resolver.swift -o /tmp
 - Menu item 個人詞典… opens a window to add/remove words. Store: `~/Library/Application Support/ZhuyinLM/user-dictionary.json`.
 - English words (letters only) rank first in the English lexicon and keep their capitalisation when offered (Tab); Chinese phrases are written to McBopomofo's `data.txt` with a reading (suggested from per-character readings, editable).
 - Limits: English entries cannot contain spaces/digits yet; Tab completion keeps the case the user already typed for the prefix. AI-assisted adding and typo auto-fix are not built.
+
+## Chinese tone-slip repair (offer, unverified on a real device)
+- `PhraseRepair`: when the last 2-5 typed syllables form no known phrase but changing exactly one tone gives a clearly likelier one (score >= -6.5 and 1.5 better than reading the syllables as separate characters), the tooltip shows `修正聲調：詞 ⇥`. Tab deletes those syllables (synthetic Backspace) and retypes them with the corrected tone through the normal key handler.
+- Offline numbers on the bundled lexicon: ~78% of one-tone slips in common phrases recovered; ~6% of ordinary word boundaries are flagged.
+- Not built yet: automatic (no-Tab) fix, wrong initial/final slips, homophone selection, fixes after commit.

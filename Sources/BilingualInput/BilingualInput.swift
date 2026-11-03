@@ -7,6 +7,7 @@ enum BilingualAction {
     case beginEnglish(String)                 // commit composition (dropping the Zhuyin reading), then insert this text
     case insert(String)                       // insert this text (completion suffix)
     case acceptOffer(String)                  // commit composition, then insert the offered English word
+    case repair(backspaces: Int, keys: String) // delete the last syllables, then retype them with corrected tones
 }
 
 /// Decides, key by key, whether typing has turned into English. Once a run is English its
@@ -20,6 +21,9 @@ final class BilingualInput {
     private var analyzer: BilingualAnalyzer?
     private var baseWords: [String] = []
     private var zhuyinIndex: ZhuyinSyllableIndex?
+    private var repairEngine: PhraseRepair?
+    private var pending = ""           // Zhuyin keys of the syllable being typed
+    private var done: [String] = []    // finished syllables of this composition, keys incl. tone key
     private var buffer = ""            // keys typed since the composition started
     private var englishRun = false     // inside an English word: letters are literal
     private var runWord = ""           // lowercase letters of the current English word
@@ -54,6 +58,7 @@ final class BilingualInput {
         }
         UserDictionary.shared.characterReadings = firstReading
         zhuyinIndex = ZhuyinSyllableIndex(readings: readings)
+        repairEngine = PhraseRepair(lines: zh.split(separator: "\n"))
         reloadUserWords()
     }
 
@@ -68,9 +73,34 @@ final class BilingualInput {
 
     /// Supplies the analyzer directly (used by tests instead of the bundled data files).
     func install(analyzer built: BilingualAnalyzer) { lock.lock(); analyzer = built; lock.unlock() }
+    func install(repair engine: PhraseRepair) { repairEngine = engine }
 
     func reset() {
         buffer = ""; englishRun = false; runWord = ""; shiftDown = false; modeLabel = nil
+        pending = ""; done = []
+    }
+
+    /// Follows the Zhuyin syllables typed so far so a wrong tone can be offered a fix.
+    private func track(_ ch: Character) {
+        if "3467 ".contains(ch) {
+            if pending.isEmpty { done = [] } else {
+                done.append(pending + String(ch)); pending = ""
+                if done.count > 8 { done.removeFirst() }
+            }
+        } else if ZhuyinKeyboard.keyMap[ch] != nil {
+            pending.append(ch)
+        } else { pending = ""; done = [] }
+    }
+
+    /// Tone fix for the last syllables, when they form no phrase but one tone change does.
+    func currentRepair(composing: Bool) -> (word: String, backspaces: Int, keys: String)? {
+        guard composing, !englishRun, pending.isEmpty, done.count >= 2, let engine = repairEngine else { return nil }
+        for n in stride(from: min(5, done.count), through: 2, by: -1) {
+            let typed = done.suffix(n).compactMap { PhraseRepair.syllable(fromKeys: $0) }
+            guard typed.count == n, let fix = engine.suggest(typed) else { continue }
+            return (fix.word, n, fix.readings.map { PhraseRepair.keys(for: $0) }.joined())
+        }
+        return nil
     }
 
     /// The English word to offer right now: a completion of the word being typed, or an
@@ -87,6 +117,7 @@ final class BilingualInput {
     }
 
     private func startEnglish(_ ch: Character) {
+        pending = ""; done = []
         englishRun = true
         runWord = ch.isLetter ? String(ch).lowercased() : ""
         buffer = ""
@@ -138,6 +169,7 @@ final class BilingualInput {
         if event.keyCode == 51 {  // delete
             if englishRun { if !runWord.isEmpty { runWord.removeLast() }; return .passThrough }
             if !buffer.isEmpty { buffer.removeLast() }
+            if !pending.isEmpty { pending.removeLast() } else if !done.isEmpty { done.removeLast() }
             return .passThrough
         }
         if event.keyCode == 48, let word = currentCompletion(composing: composing) {  // Tab accepts the offer
@@ -147,7 +179,11 @@ final class BilingualInput {
                 return .insert(suffix)
             }
             englishRun = true; runWord = word.lowercased(); buffer = ""
+            pending = ""; done = []
             return .acceptOffer(word)
+        }
+        if event.keyCode == 48, let fix = currentRepair(composing: composing) {  // Tab applies the tone fix
+            return .repair(backspaces: fix.backspaces, keys: fix.keys)
         }
         guard let chars = event.characters, chars.count == 1, let scalar = chars.unicodeScalars.first,
               scalar.value >= 0x20, scalar.value < 0x7F else {
@@ -165,7 +201,7 @@ final class BilingualInput {
             return ch == " " ? .literal : .passThrough
         }
         if englishMode { return composing ? .commitComposingThenLiteral : .literal }
-        if !composing { buffer = "" }
+        if !composing { buffer = ""; pending = ""; done = [] }
 
         // A capital letter starts an English word.
         if ch.isASCII, ch.isUppercase {
@@ -179,15 +215,18 @@ final class BilingualInput {
             return .beginEnglish(scheme + ":")
         }
         if ch == " " {
+            track(ch)
             buffer = ""
             previousRunEnglish = false  // a Chinese run ended
             return .passThrough
         }
         buffer.append(ch)
+        track(ch)
         guard ch.isASCII, ch.isLowercase, let tail = letterTail(buffer) else { return .passThrough }
         lock.lock(); let analyzer = self.analyzer; lock.unlock()
         if analyzer?.startsEnglish(tail, previousRunEnglish: previousRunEnglish) == true {
             englishRun = true; runWord = tail; buffer = ""
+            pending = ""; done = []
             return .beginEnglish(tail)
         }
         return .passThrough

@@ -70,6 +70,8 @@ struct BilingualRoutingTests {
                 zh = String(zh.dropLast(max(t.count - 1, 0))); flush(); out += t
             case .insert(let t):
                 out += t
+            case .repair:
+                break
             case .acceptOffer(let word):
                 let tail = String(zh.reversed().prefix { $0.isLowercase && $0.isASCII }.reversed())
                 zh = String(zh.dropLast(tail.count)); flush(); out += word
@@ -127,6 +129,34 @@ struct BilingualRoutingTests {
         if case .insert(let suffix) = input.decide(key(48, "\t"), composing: false) {
             precondition(!suffix.isEmpty)
         } else { failures += 1; print("FAIL Tab completion") }
+        // Tone repair: a frequent 2-char phrase typed with one wrong tone key is offered a fix on Tab.
+        let engine = PhraseRepair(lines: try lines("data/chinese-lexicon.tsv"))
+        input.install(repair: engine)
+        var fixed = 0
+        for line in try lines("data/chinese-lexicon.tsv").prefix(3000) {
+            let f = line.split(separator: "\t")
+            guard f.count >= 3, f[0].count == 2, let r = f[2].split(separator: "|").first else { continue }
+            let syl = r.split(separator: "-").map(String.init)
+            guard syl.count == 2, let tone = PhraseRepair.tone(syl[1]), tone != "˙" else { continue }
+            let wrongTone: Character = tone == "ˊ" ? "ˇ" : "ˊ"
+            var typed = syl; typed[1] = PhraseRepair.stripTone(syl[1]) + String(wrongTone)
+            guard let want = engine.suggest(typed), want.readings == syl else { continue }
+            input.reset()
+            for syllable in typed {
+                for ch in PhraseRepair.keys(for: syllable) { _ = input.decide(event(ch), composing: true) }
+            }
+            guard case .repair(let n, let keys) = input.decide(key(48, "\t"), composing: true) else {
+                failures += 1; print("FAIL no repair for \(f[0])"); break
+            }
+            if n != 2 || keys != syl.map(PhraseRepair.keys(for:)).joined() { failures += 1; print("FAIL repair keys for \(f[0]): \(n) \(keys)") }
+            fixed += 1
+            if fixed == 20 { break }
+        }
+        if fixed == 0 { failures += 1; print("FAIL no tone repair case found") }
+        // A correctly typed phrase gets no offer.
+        input.reset()
+        for ch in "su3cl3" { _ = input.decide(event(ch), composing: true) }
+        if input.currentRepair(composing: true) != nil { failures += 1; print("FAIL repair offered for 你好") }
         if failures > 0 { print("\(failures) routing failure(s)"); exit(1) }
         print("Bilingual routing: key replay cases passed")
     }
