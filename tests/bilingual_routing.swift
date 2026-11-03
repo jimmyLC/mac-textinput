@@ -108,6 +108,8 @@ struct BilingualRoutingTests {
         check("run ", "run ")                           // 3+ letters beat toneless Zhuyin
         check("su3cl3 ", "[Zh:su3cl3]")                 // Chinese stays with the Zhuyin engine
         check("up ", "[Zh:up]")                         // 因 (ㄧㄣ): a 2-letter word must not win
+        check("hello{shift}su3 ", "hello[Zh:su3]")      // Shift tap ends the English word and returns to Chinese
+        check("hello su3 up ", "hello [Zh:su3][Zh:up]") // a finished Chinese syllable resets the English context
         check("su3cl3co ", "[Zh:su3cl3co]")            // 黑 (ㄏㄟ) after Chinese must not become "co"
         check("co ", "[Zh:co]")
         check("co3", "[Zh:co3]")

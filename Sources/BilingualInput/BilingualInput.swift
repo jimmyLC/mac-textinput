@@ -90,6 +90,7 @@ final class BilingualInput {
         if "3467 ".contains(ch) {
             if pending.isEmpty { done = [] } else {
                 done.append(pending + String(ch)); pending = ""
+                previousRunEnglish = false   // a Zhuyin syllable was completed: the context is Chinese again
                 if done.count > 8 { done.removeFirst() }
             }
         } else if ZhuyinKeyboard.keyMap[ch] != nil {
@@ -150,6 +151,14 @@ final class BilingualInput {
                 startEnglish(tail.last!); runWord = tail; runTyped = tail
                 buffer = ""
                 return .beginEnglish(tail)
+            }
+            if englishRun, !englishMode {
+                // Shift tap inside an English word: back to Chinese without typing a space.
+                learnEnglish(runWord)
+                englishRun = false; runWord = ""; runTyped = ""
+                previousRunEnglish = false
+                modeLabel = "中文"
+                return .passThrough
             }
             guard !composing, !englishRun || englishMode else { return .passThrough }
             englishMode.toggle()
