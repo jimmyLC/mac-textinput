@@ -61,3 +61,8 @@ swiftc Sources/BilingualPrototype/*.swift tests/bilingual_resolver.swift -o /tmp
 - Tone-fix offers: counters of offers shown/accepted adjust the required margin (1.0-2.5) once 30 offers exist.
 - Never stored: sentences, Chinese text, common words. Pause and clear buttons are in the 個人詞典 window. macOS bypasses third-party IMEs in secure (password) fields.
 - Only English words typed as an English run are learned (capital first letter, Shift/Caps mode, or after English); lowercase uncommon words still parse as Zhuyin, so they are not seen.
+
+## English spelling fix (offer, unverified on a real device)
+- After an English word of 4+ letters that is not in the lexicon or personal dictionary, the tooltip shows `修正拼字：word ⇥` when a known word (top 30k) is one edit away (swap, dropped, extra or wrong letter); the most frequent candidate wins, capitalisation is kept. Tab replaces the typed word and its space via `replacementRange` after checking the text before the caret matches; apps that do not report their text are left untouched.
+- Caps/Shift English mode now tracks runs too, so offers, spelling and learning work there; lowercase typos outside English mode still start as Zhuyin and are not seen.
+- Probably-typo words (a correction exists) are not auto-learned into the dictionary.

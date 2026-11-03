@@ -26,6 +26,10 @@ extension McBopomofoInputMethodController {
             (client as? IMKTextInput)?.insertText(word, replacementRange: NSRange(location: NSNotFound, length: NSNotFound))
             showBilingualTooltip(nil, client: client)
             return true
+        case .replaceTyped(let old, let new):
+            replaceTyped(old: old, with: new, client: client)
+            showBilingualTooltip(nil, client: client)
+            return true
         case .repair(let backspaces, let keys):
             showBilingualTooltip(nil, client: client)
             for _ in 0..<backspaces { sendKey("\u{7F}", keyCode: 51, client: client) }
@@ -49,6 +53,18 @@ extension McBopomofoInputMethodController {
         showCompletion(client: client)
     }
 
+    /// Replaces the text just before the caret when it is exactly `old` (checked first, so
+    /// apps that do not report their text are left untouched).
+    private func replaceTyped(old: String, with new: String, client: Any!) {
+        guard let text = client as? IMKTextInput else { return }
+        let caret = text.selectedRange()
+        let length = (old as NSString).length
+        guard caret.location != NSNotFound, caret.location >= length else { return }
+        let range = NSRange(location: caret.location - length, length: length)
+        guard text.attributedSubstring(from: range)?.string == old else { return }
+        text.insertText(new, replacementRange: range)
+    }
+
     /// Feeds a key through the normal handler, as if typed (used to retype fixed syllables).
     private func sendKey(_ ch: Character, keyCode: UInt16, client: Any!) {
         guard let event = NSEvent.keyEvent(
@@ -70,6 +86,8 @@ extension McBopomofoInputMethodController {
         let composing = state is InputState.Inputting
         if let word = BilingualInput.shared.currentCompletion(composing: composing) {
             showBilingualTooltip(word + " ⇥", client: client)
+        } else if let spell = BilingualInput.shared.currentSpellFix {
+            showBilingualTooltip("修正拼字：" + spell.new.trimmingCharacters(in: .whitespaces) + " ⇥", client: client)
         } else if let fix = BilingualInput.shared.currentRepair(composing: composing) {
             showBilingualTooltip("修正聲調：\(fix.word) ⇥", client: client)
         } else {

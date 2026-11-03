@@ -35,6 +35,26 @@ struct EnglishLexicon {
         self.rank = rank
     }
 
+    /// Most frequent known word one edit away (swap, drop, extra or wrong letter) from a
+    /// misspelling, among the `top` most frequent words. Nil when `word` is itself a word.
+    func correction(for word: String, top: Int = 30_000) -> String? {
+        let w = word.lowercased()
+        guard w.count >= 4, !words.contains(w), w.unicodeScalars.allSatisfy({ (97...122).contains($0.value) }) else { return nil }
+        let chars = Array(w)
+        var candidates = Set<String>()
+        let letters = Array("abcdefghijklmnopqrstuvwxyz")
+        for i in 0...chars.count {
+            if i < chars.count { candidates.insert(String(chars[..<i] + chars[(i + 1)...])) }                 // dropped letter
+            if i + 1 < chars.count { var c = chars; c.swapAt(i, i + 1); candidates.insert(String(c)) }        // swapped pair
+            for l in letters {
+                candidates.insert(String(chars[..<i]) + String(l) + String(chars[i...]))                       // missing letter
+                if i < chars.count { var c = chars; c[i] = l; candidates.insert(String(c)) }                    // wrong letter
+            }
+        }
+        return candidates.compactMap { c in rank[c].flatMap { $0 < top ? (c, $0) : nil } }
+            .min { $0.1 < $1.1 }?.0
+    }
+
     /// Spelling to show for a word (user dictionary capitalisation when present).
     func display(_ word: String) -> String { shown[word.lowercased()] ?? word }
 

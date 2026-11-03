@@ -7,6 +7,7 @@ enum BilingualAction {
     case beginEnglish(String)                 // commit composition (dropping the Zhuyin reading), then insert this text
     case insert(String)                       // insert this text (completion suffix)
     case acceptOffer(String)                  // commit composition, then insert the offered English word
+    case replaceTyped(old: String, new: String) // swap the just-typed word (with its space) for the corrected one
     case repair(backspaces: Int, keys: String) // delete the last syllables, then retype them with corrected tones
 }
 
@@ -29,6 +30,8 @@ final class BilingualInput {
     private var runPure = false        // the run so far is letters only (a whole word)
     private var repairOffering = false // a tone fix is currently offered
     private var runWord = ""           // lowercase letters of the current English word
+    private var runTyped = ""          // the same letters as typed (capitalisation kept)
+    private var spellFix: (old: String, new: String)?   // correction offered for the word just finished
     private var previousRunEnglish = false
     private var englishMode = false    // persistent mode (Caps Lock or Shift tap)
     private var shiftDown = false
@@ -123,6 +126,7 @@ final class BilingualInput {
         englishRun = true
         runPure = ch.isLetter
         runWord = ch.isLetter ? String(ch).lowercased() : ""
+        runTyped = ch.isLetter ? String(ch) : ""
         buffer = ""
     }
 
@@ -131,6 +135,7 @@ final class BilingualInput {
         switch event.keyCode {
         case 57:  // Caps Lock: on = English mode
             englishMode = event.modifierFlags.contains(.capsLock)
+            englishRun = false; runWord = ""; runTyped = ""   // the mode decides again from here
             modeLabel = englishMode ? "English" : "中文"
             return .passThrough
         case 56, 60:  // Shift
@@ -142,12 +147,13 @@ final class BilingualInput {
             guard shiftDown, shiftClean else { return .passThrough }
             if composing, !englishRun, let tail = letterTail(buffer), !tail.isEmpty {
                 // Shift while Zhuyin letters are pending: they were English after all.
-                startEnglish(tail.last!); runWord = tail
+                startEnglish(tail.last!); runWord = tail; runTyped = tail
                 buffer = ""
                 return .beginEnglish(tail)
             }
-            guard !composing, !englishRun else { return .passThrough }
+            guard !composing, !englishRun || englishMode else { return .passThrough }
             englishMode.toggle()
+            englishRun = false; runWord = ""; runTyped = ""
             modeLabel = englishMode ? "English" : "中文"
             return .passThrough
         default:
@@ -161,10 +167,26 @@ final class BilingualInput {
     }
 
     /// Counts a finished uncommon English word; a word seen often enough joins the dictionary.
+    /// After a finished, unknown English word, remember a one-edit correction to offer.
+    private func offerSpellFix() {
+        lock.lock(); let analyzer = self.analyzer; lock.unlock()
+        guard runPure, let lexicon = analyzer?.lexicon, let fix = lexicon.correction(for: runWord),
+              !UserDictionary.shared.englishWords.contains(where: { $0.lowercased() == runWord }) else { return }
+        let new: String
+        if runTyped.count > 1, runTyped == runTyped.uppercased() { new = fix.uppercased() }
+        else if runTyped.first?.isUppercase == true { new = fix.prefix(1).uppercased() + fix.dropFirst() }
+        else { new = fix }
+        spellFix = (runTyped + " ", new + " ")
+    }
+
+    /// Correction offered for the word just typed (cleared by the next key).
+    var currentSpellFix: (old: String, new: String)? { spellFix }
+
     private func learnEnglish(_ word: String) {
         guard runPure, word.count >= 3 else { return }
         lock.lock(); let analyzer = self.analyzer; lock.unlock()
         guard let lexicon = analyzer?.lexicon, !lexicon.isCommon(word, top: 20_000),
+              lexicon.correction(for: word) == nil,   // probably a typo, not a new word
               !UserDictionary.shared.englishWords.contains(where: { $0.lowercased() == word }) else { return }
         if LearningStore.shared.recordEnglish(word),
            (try? UserDictionary.shared.add(word: word, reading: nil, auto: true)) != nil {
@@ -197,8 +219,13 @@ final class BilingualInput {
         if flags.contains(.command) || flags.contains(.control) || flags.contains(.option) {
             reset(); return .passThrough
         }
+        let offeredFix = spellFix
+        if event.type == .keyDown { spellFix = nil }
+        if event.keyCode == 48, let fix = offeredFix, !englishRun {  // Tab applies the spelling fix
+            return .replaceTyped(old: fix.old, new: fix.new)
+        }
         if event.keyCode == 51 {  // delete
-            if englishRun { if !runWord.isEmpty { runWord.removeLast() }; return .passThrough }
+            if englishRun { if !runWord.isEmpty { runWord.removeLast(); runTyped.removeLast() }; return .passThrough }
             if !buffer.isEmpty { buffer.removeLast() }
             if !pending.isEmpty { pending.removeLast() } else if !done.isEmpty { done.removeLast() }
             return .passThrough
@@ -206,10 +233,10 @@ final class BilingualInput {
         if event.keyCode == 48, let word = currentCompletion(composing: composing) {  // Tab accepts the offer
             if englishRun {
                 let suffix = String(word.dropFirst(runWord.count))
-                runWord = word.lowercased()
+                runWord = word.lowercased(); runTyped += suffix
                 return .insert(suffix)
             }
-            englishRun = true; runWord = word.lowercased(); buffer = ""
+            englishRun = true; runWord = word.lowercased(); runTyped = word; buffer = ""
             pending = ""; done = []
             return .acceptOffer(word)
         }
@@ -224,15 +251,19 @@ final class BilingualInput {
 
         if englishRun {
             if Self.runCharacters.contains(ch) {
-                if ch.isLetter { runWord.append(Character(ch.lowercased())) } else { runWord = ""; runPure = false }
+                if ch.isLetter { runWord.append(Character(ch.lowercased())); runTyped.append(ch) } else { runWord = ""; runTyped = ""; runPure = false }
                 return .literal
             }
             learnEnglish(runWord)
+            if ch == " " { offerSpellFix() }
             englishRun = false; runWord = ""
             previousRunEnglish = true
             return ch == " " ? .literal : .passThrough
         }
-        if englishMode { return composing ? .commitComposingThenLiteral : .literal }
+        if englishMode {
+            if ch.isLetter { startEnglish(ch) }   // tracked as an English run: offers, spelling, learning
+            return composing ? .commitComposingThenLiteral : .literal
+        }
         if !composing { buffer = ""; pending = ""; done = [] }
 
         // A capital letter starts an English word.
@@ -257,7 +288,7 @@ final class BilingualInput {
         guard ch.isASCII, ch.isLowercase, let tail = letterTail(buffer) else { return .passThrough }
         lock.lock(); let analyzer = self.analyzer; lock.unlock()
         if analyzer?.startsEnglish(tail, previousRunEnglish: previousRunEnglish) == true {
-            englishRun = true; runWord = tail; buffer = ""
+            englishRun = true; runWord = tail; runTyped = tail; buffer = ""
             pending = ""; done = []
             return .beginEnglish(tail)
         }

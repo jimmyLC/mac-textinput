@@ -72,6 +72,8 @@ struct BilingualRoutingTests {
                 out += t
             case .repair:
                 break
+            case .replaceTyped(let old, let new):
+                if out.hasSuffix(old) { out = String(out.dropLast(old.count)) + new }
             case .acceptOffer(let word):
                 let tail = String(zh.reversed().prefix { $0.isLowercase && $0.isASCII }.reversed())
                 zh = String(zh.dropLast(tail.count)); flush(); out += word
@@ -160,6 +162,11 @@ struct BilingualRoutingTests {
         input.reset()
         for ch in "su3cl3" { _ = input.decide(event(ch), composing: true) }
         if input.currentRepair(composing: true) != nil { failures += 1; print("FAIL repair offered for 你好") }
+        // Spelling: an unknown English word gets a one-edit correction offered; Tab swaps it.
+        check("{caps}the wrold \t{caps}", "the world ")
+        check("{caps}the wrold x{caps}", "the wrold x")        // any other key drops the offer
+        check("{caps}the world \t{caps}", "the world [Zh:\t]")  // a real word gets no offer
+        check("Wrold \t", "World ")                     // capitalisation kept
         // Learning: an uncommon English word typed three times joins the dictionary.
         for _ in 0..<3 { _ = run("Wibblesnork ") }
         if !UserDictionary.shared.englishWords.contains("wibblesnork") { failures += 1; print("FAIL English word not learned: \(UserDictionary.shared.englishWords)") }
