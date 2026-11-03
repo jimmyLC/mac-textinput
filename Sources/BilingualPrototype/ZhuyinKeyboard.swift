@@ -59,6 +59,12 @@ struct ZhuyinSyllableIndex {
         wordPrefixes = prefixes(words)
     }
 
+    /// Whether the keys spell exactly one valid (toneless) syllable, e.g. "co" = ㄏㄟ (黑).
+    func isSyllable(_ keys: String) -> Bool {
+        let symbols = keys.compactMap { ZhuyinKeyboard.keyMap[$0] }
+        return !keys.isEmpty && symbols.count == keys.count && syllables.contains(String(symbols))
+    }
+
     func parse(_ keys: String) -> ZhuyinParse {
         guard !keys.isEmpty else { return .invalid }
         var symbols: [Character] = []

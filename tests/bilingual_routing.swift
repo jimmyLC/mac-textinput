@@ -106,6 +106,9 @@ struct BilingualRoutingTests {
         check("run ", "run ")                           // 3+ letters beat toneless Zhuyin
         check("su3cl3 ", "[Zh:su3cl3]")                 // Chinese stays with the Zhuyin engine
         check("up ", "[Zh:up]")                         // 因 (ㄧㄣ): a 2-letter word must not win
+        check("su3cl3co ", "[Zh:su3cl3co]")            // 黑 (ㄏㄟ) after Chinese must not become "co"
+        check("co ", "[Zh:co]")
+        check("co3", "[Zh:co3]")
         check("hello up ", "hello up ")                 // ...but after English it is English
         check("su3cl3hello ", "[Zh:su3cl3]hello ")      // Chinese then English; Chinese is kept
         check("su3cl3 hello ", "[Zh:su3cl3]hello ")     // Chinese already in the underlined buffer
