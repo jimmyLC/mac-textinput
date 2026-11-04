@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key><string>zh-Hant</string>
+	<key>CFBundleExecutable</key><string>Zhizhi</string>
+	<key>CFBundleIdentifier</key><string>com.jimmylc.inputmethod.Zhizhi</string>
+	<key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+	<key>CFBundleName</key><string>Zhizhi</string>
+	<key>CFBundlePackageType</key><string>APPL</string>
+	<key>CFBundleShortVersionString</key><string>0.1.0</string>
+	<key>CFBundleVersion</key><string>1</string>
+	<key>ComponentInputModeDict</key>
+	<dict>
+		<key>tsInputModeListKey</key>
+		<dict>
+			<key>com.jimmylc.inputmethod.Zhizhi.Zhuyin</key>
+			<dict>
+				<key>TISIntendedLanguage</key><string>zh-Hant</string>
+				<key>tsInputModeAlternateMenuIconFileKey</key><string>Zhizhi.tiff</string>
+				<key>tsInputModeCharacterRepertoireKey</key>
+				<array><string>Hant</string><string>Han</string></array>
+				<key>tsInputModeDefaultStateKey</key><true/>
+				<key>tsInputModeIsVisibleKey</key><true/>
+				<key>tsInputModeMenuIconFileKey</key><string>Zhizhi.tiff</string>
+				<key>tsInputModePaletteIconFileKey</key><string>Zhizhi.tiff</string>
+				<key>tsInputModePrimaryInScriptKey</key><true/>
+				<key>tsInputModeScriptKey</key><string>smTradChinese</string>
+			</dict>
+		</dict>
+		<key>tsVisibleInputModeOrderedArrayKey</key>
+		<array><string>com.jimmylc.inputmethod.Zhizhi.Zhuyin</string></array>
+	</dict>
+	<key>InputMethodConnectionName</key><string>Zhizhi_1_Connection</string>
+	<key>InputMethodServerControllerClass</key><string>ZhizhiInputController</string>
+	<key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
+	<key>LSBackgroundOnly</key><true/>
+	<key>LSHasLocalizedDisplayName</key><true/>
+	<key>LSMinimumSystemVersion</key><string>14.0</string>
+	<key>NSPrincipalClass</key><string>NSApplication</string>
+	<key>tsInputMethodCharacterRepertoireKey</key>
+	<array><string>Hant</string><string>Han</string></array>
+	<key>tsInputMethodIconFileKey</key><string>Zhizhi.tiff</string>
+</dict>
+</plist>

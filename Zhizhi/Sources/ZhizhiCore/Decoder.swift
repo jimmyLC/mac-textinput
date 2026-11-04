@@ -90,13 +90,14 @@ public final class Decoder {
         decode(keys: Array(text), constraints: constraints)
     }
 
-    public func decode(keys: [Character], constraints: [Constraint] = []) -> [Segment] {
+    /// `leading` is the language of the text already in the app, for punctuation width and context.
+    public func decode(keys: [Character], constraints: [Constraint] = [], leading: Segment.Kind = .other) -> [Segment] {
         let n = keys.count
         guard n > 0 else { return [] }
         let kinds = 3   // language context: chinese, english, none
         var best = [Float](repeating: .infinity, count: (n + 1) * kinds)
         var back = [(prev: Int32, prevContext: Int8, edge: Int32)](repeating: (-1, -1, -1), count: (n + 1) * kinds)
-        best[Segment.Kind.other.rawValue] = 0
+        best[leading == .pending ? Segment.Kind.chinese.rawValue : leading.rawValue] = 0
 
         var fixedAt = [Constraint?](repeating: nil, count: n)
         for c in constraints { for i in c.range where i < n { fixedAt[i] = c } }
@@ -212,6 +213,15 @@ public final class Decoder {
     public struct Offer: Equatable {
         public var text: String        // what Tab would produce
         public var range: Range<Int>   // the keys it replaces
+        public init(text: String, range: Range<Int>) { self.text = text; self.range = range }
+    }
+
+    /// One-edit spelling fix keeping the typed capitalisation.
+    public func spellingFix(for typed: String) -> String? {
+        guard let fix = lexicon.spellingFix(for: typed) else { return nil }
+        if typed.count > 1, typed == typed.uppercased() { return fix.uppercased() }
+        if typed.first?.isUppercase == true { return fix.prefix(1).uppercased() + fix.dropFirst() }
+        return fix
     }
 
     /// The single Tab offer for the keys before `cursor`: personal entries first, then English.
@@ -227,6 +237,11 @@ public final class Decoder {
             }
         }
         if let fix = chineseOffer(keys: keys, cursor: cursor) { return fix }
+        // The letters are read as Zhuyin but are also a common word: offer that word first.
+        if tail.count >= 2, let rank = lexicon.englishRank[tail], rank < commonWordsThreeLetters,
+           decode(keys: Array(keys[..<cursor])).last?.kind != .english {
+            return Offer(text: String(keys[start..<cursor]), range: start..<cursor)
+        }
         if tail.count >= 2, let word = lexicon.bestCompletion[tail] {
             let typed = String(keys[start..<cursor])
             let text = typed.first!.isUppercase ? typed + word.dropFirst(typed.count) : word

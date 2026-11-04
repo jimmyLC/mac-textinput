@@ -52,7 +52,7 @@ public final class Lexicon {
             englishRank[word] = rank
             rank += 1
             // Most frequent first, so the first word seen for a prefix is the best one.
-            if rank <= 60_000, word.count >= 3 {
+            if rank <= 20_000, word.count >= 3 {
                 var prefix = ""
                 for ch in word.dropLast().prefix(8) {
                     prefix.append(ch)

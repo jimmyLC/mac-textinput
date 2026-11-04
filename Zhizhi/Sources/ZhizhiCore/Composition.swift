@@ -6,6 +6,8 @@ public struct Composition {
     public private(set) var keys: [Character] = []
     public private(set) var cursor = 0
     public private(set) var constraints: [Constraint] = []
+    /// Language of the text just before this buffer in the app.
+    public var leading: Segment.Kind = .other
 
     /// Sentence-ending punctuation commits the buffer.
     private static let committingKeys: Set<Character> = ["<", ">", "?", "!"]
@@ -15,7 +17,7 @@ public struct Composition {
 
     public var isEmpty: Bool { keys.isEmpty }
 
-    public func segments(_ decoder: Decoder) -> [Segment] { decoder.decode(keys: keys, constraints: constraints) }
+    public func segments(_ decoder: Decoder) -> [Segment] { decoder.decode(keys: keys, constraints: constraints, leading: leading) }
 
     /// Display text and the caret's offset (UTF-16) inside it.
     public func rendered(_ decoder: Decoder) -> (text: String, caret: Int) {
@@ -47,6 +49,14 @@ public struct Composition {
         shift(from: cursor, by: 1)
         cursor += 1
         return Self.committingKeys.contains(key) && cursor == keys.count
+    }
+
+    /// Adds a key whose meaning is already fixed: an Option-digit, numpad digit or picked symbol.
+    public mutating func insertFixed(_ key: Character, text: String) {
+        keys.insert(key, at: cursor)
+        shift(from: cursor, by: 1)
+        constraints.append(Constraint(range: cursor..<(cursor + 1), fix: .text(text, .other)))
+        cursor += 1
     }
 
     /// Deletes one unit before the cursor: a whole Chinese character, one letter, or one Zhuyin key.
