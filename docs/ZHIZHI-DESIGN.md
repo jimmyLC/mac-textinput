@@ -33,6 +33,10 @@ A from-scratch rewrite replacing the McBopomofo-based ZhuyinLM. The goal is typi
 
 ## App
 One `/Applications` app embedding the IME; it installs, updates, and restores. Pages: home, dictionary, history, preferences, AI. It need not stay running.
+- `知之.app` (`com.jimmylc.Zhizhi`) carries `Zhizhi.app` in its resources and copies it to `~/Library/Input Methods`, keeping the previous copy so one click restores it. Each build has its own `CFBundleVersion`, which is how it spots an older install. `scripts/build-app.sh`, `scripts/install-app.sh`.
+- Settings live in the input method's defaults domain, and the dictionary in its TSV files. The App changes them and posts a distributed notification, so the input method follows without a restart.
+- The model downloads only on the owner's click, at a pinned Hugging Face revision, with every file's SHA-256 checked before it counts as installed.
+- Not built: habit-based language judgement (the App offers Chinese first or English first), simplified output, and a real-time list of problem apps. The sentence history key is created in the Keychain by whichever process asks first, so with ad-hoc signing the other may trigger a macOS permission prompt, again after each rebuild.
 
 Kept from the old IME: candidate window, full/half-width punctuation, symbol table, cursor movement in the buffer. Simplified output later. Dropped: associated phrases, macros, plain Bopomofo mode, rare features.
 

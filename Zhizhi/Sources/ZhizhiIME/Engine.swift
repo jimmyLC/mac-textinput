@@ -1,6 +1,4 @@
-import CryptoKit
 import Foundation
-import Security
 import ZhizhiCore
 
 /// The dictionaries, learning and local AI shared by every input session in this process.
@@ -8,21 +6,16 @@ final class Engine {
     static let shared = Engine()
     /// A swap must raise the sentence's log-probability by this much (eval/README.md).
     static let correctionThreshold: Float = 2.5
-    static let modelName = "Qwen2.5-1.5B-4bit"
+    let paths = ZhizhiPaths()
+    private(set) var settings = Settings(defaults: Settings.sharedDefaults)
 
     private(set) var decoder: Decoder = Decoder(lexicon: Lexicon())
     private(set) var learner: Learner?
     private(set) lazy var ai = HelperClient(
         executable: Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/zhizhi-ai"),
-        model: Self.support.appendingPathComponent("models/\(Self.modelName)"))
+        model: paths.models.appendingPathComponent(ModelManifest.qwen.name))
     private let saving = DispatchQueue(label: "zhizhi.save")
     private var saveScheduled = false
-
-    static let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        .appendingPathComponent("Zhizhi")
-    private static let dictionaryFile = support.appendingPathComponent("dictionary.tsv")
-    private static let deletedFile = support.appendingPathComponent("dictionary-deleted.txt")
-    private static let learningFile = support.appendingPathComponent("learning.json")
 
     func load() {
         let lexicon = Lexicon()
@@ -33,15 +26,34 @@ final class Engine {
         if let english = try? String(contentsOf: resources.appendingPathComponent("english-words.txt"), encoding: .utf8) {
             lexicon.loadEnglish(text: english)
         }
-        let dictionary = PersonalDictionary(
-            tsv: (try? String(contentsOf: Self.dictionaryFile, encoding: .utf8)) ?? "",
-            deleted: (try? String(contentsOf: Self.deletedFile, encoding: .utf8)) ?? "")
-        let state = (try? Data(contentsOf: Self.learningFile)).flatMap { try? JSONDecoder().decode(Learner.State.self, from: $0) }
-        let learner = Learner(lexicon: lexicon, dictionary: dictionary, state: state ?? Learner.State())
+        let state = (try? Data(contentsOf: paths.learning)).flatMap { try? JSONDecoder().decode(Learner.State.self, from: $0) }
+        let learner = Learner(lexicon: lexicon, dictionary: paths.loadDictionary(), state: state ?? Learner.State())
         learner.onChange = { [weak self] in self?.scheduleSave() }
         self.learner = learner
         decoder = Decoder(lexicon: lexicon)
-        if Preferences.sentenceHistory { try? history()?.prune() }
+        settings.apply(to: decoder)
+        if settings.sentenceHistory { try? history()?.prune() }
+
+        // The App edits settings and the dictionary; this process follows along.
+        let center = DistributedNotificationCenter.default()
+        center.addObserver(forName: Settings.settingsChanged, object: nil, queue: .main) { [weak self] _ in self?.reloadSettings() }
+        center.addObserver(forName: Settings.dictionaryChanged, object: nil, queue: .main) { [weak self] _ in
+            guard let self else { return }
+            self.learner?.reload(self.paths.loadDictionary())
+        }
+    }
+
+    private func reloadSettings() {
+        settings = Settings(defaults: Settings.sharedDefaults)
+        settings.apply(to: decoder)
+        if !settings.aiCorrections { ai.stop() }
+    }
+
+    /// A change made from the input menu.
+    func update(_ change: (inout Settings) -> Void) {
+        change(&settings)
+        settings.save(to: Settings.sharedDefaults)
+        settings.apply(to: decoder)
     }
 
     /// Saves a moment after the last change, off the main thread, so typing never waits for the disk.
@@ -49,18 +61,14 @@ final class Engine {
         guard !saveScheduled, let learner else { return }
         saveScheduled = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
-            self?.saveScheduled = false
-            let tsv = learner.dictionary.tsv, deleted = learner.dictionary.deletedText
+            guard let self else { return }
+            self.saveScheduled = false
+            let dictionary = learner.dictionary, paths = self.paths
             let state = try? JSONEncoder().encode(learner.state)
-            self?.saving.async {
-                let fm = FileManager.default
-                try? fm.createDirectory(at: Self.support, withIntermediateDirectories: true)
-                try? tsv.write(to: Self.dictionaryFile, atomically: true, encoding: .utf8)
-                try? deleted.write(to: Self.deletedFile, atomically: true, encoding: .utf8)
-                try? state?.write(to: Self.learningFile, options: .atomic)
-                for file in [Self.dictionaryFile, Self.deletedFile, Self.learningFile] {
-                    try? fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)
-                }
+            self.saving.async {
+                try? paths.save(dictionary)
+                try? state?.write(to: paths.learning, options: .atomic)
+                try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: paths.learning.path)
             }
         }
     }
@@ -68,7 +76,7 @@ final class Engine {
     /// Nil when the key cannot be obtained: then nothing is kept.
     func history() -> SentenceHistory? {
         guard let key = Keychain.historyKey() else { return nil }
-        return SentenceHistory(file: Self.support.appendingPathComponent("history.enc"), key: key)
+        return SentenceHistory(file: paths.history, key: key)
     }
 
     func clearHistory() {
@@ -77,47 +85,6 @@ final class Engine {
 
     func keep(sentence: String) {
         saving.async { [self] in try? history()?.append(sentence) }
-    }
-}
-
-/// Owner's choices; the App's preference pages will edit these later.
-enum Preferences {
-    private static let defaults = UserDefaults.standard
-    static var aiCorrections: Bool {
-        get { !defaults.bool(forKey: "AICorrectionsOff") }
-        set { defaults.set(!newValue, forKey: "AICorrectionsOff") }
-    }
-    static var learningPaused: Bool {
-        get { defaults.bool(forKey: "LearningPaused") }
-        set { defaults.set(newValue, forKey: "LearningPaused") }
-    }
-    /// Off until the owner has verified on this Mac that secure fields bypass the input method.
-    static var sentenceHistory: Bool {
-        get { defaults.bool(forKey: "SentenceHistoryOn") }
-        set { defaults.set(newValue, forKey: "SentenceHistoryOn") }
-    }
-}
-
-/// The sentence history's key, in the login Keychain on this device only.
-enum Keychain {
-    private static let query: [String: Any] = [
-        kSecClass as String: kSecClassGenericPassword,
-        kSecAttrService as String: "com.jimmylc.inputmethod.Zhizhi.history",
-        kSecAttrAccount as String: "sentence-history-key",
-    ]
-
-    static func historyKey() -> SymmetricKey? {
-        var lookup = query
-        lookup[kSecReturnData as String] = true
-        var found: CFTypeRef?
-        if SecItemCopyMatching(lookup as CFDictionary, &found) == errSecSuccess, let data = found as? Data {
-            return SymmetricKey(data: data)
-        }
-        let key = SymmetricKey(size: .bits256)
-        var add = query
-        add[kSecValueData as String] = key.withUnsafeBytes { Data($0) }
-        add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-        return SecItemAdd(add as CFDictionary, nil) == errSecSuccess ? key : nil
     }
 }
 

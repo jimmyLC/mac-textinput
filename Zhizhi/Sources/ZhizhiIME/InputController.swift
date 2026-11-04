@@ -22,6 +22,7 @@ final class ZhizhiInputController: IMKInputController {
 
     override func activateServer(_ sender: Any!) {
         _ = Self.mode.syncCaps(NSEvent.modifierFlags.contains(.capsLock))
+        Self.mode.setSwitchKey(Engine.shared.settings.switchKeyCode)
     }
 
     override func deactivateServer(_ sender: Any!) {
@@ -73,15 +74,18 @@ final class ZhizhiInputController: IMKInputController {
 
     /// Learning listens only outside secure input, password tools and terminals, and never while paused.
     private func prepareLearning(client: Any!) {
+        let settings = Engine.shared.settings
+        settings.apply(to: session)
+        Self.mode.setSwitchKeyIfChanged(settings.switchKeyCode)
         let bundleID = (client as? IMKTextInput)?.bundleIdentifier()
-        let allowed = !Preferences.learningPaused && !IsSecureEventInputEnabled() && !LearningExclusions.excludes(bundleID: bundleID)
+        let allowed = !settings.learningPaused && !IsSecureEventInputEnabled() && !LearningExclusions.excludes(bundleID: bundleID)
         session.learner = allowed ? Engine.shared.learner : nil
-        session.onCommit = allowed && Preferences.sentenceHistory ? { Engine.shared.keep(sentence: $0) } : nil
+        session.onCommit = allowed && settings.sentenceHistory ? { Engine.shared.keep(sentence: $0) } : nil
     }
 
     private func scheduleCorrection(client: Any!) {
         pause?.cancel()
-        guard Preferences.aiCorrections, session.isComposing, Engine.shared.ai.isAvailable, !IsSecureEventInputEnabled() else { return }
+        guard Engine.shared.settings.aiCorrections, session.isComposing, Engine.shared.ai.isAvailable, !IsSecureEventInputEnabled() else { return }
         let work = DispatchWorkItem { [weak self] in self?.runCorrection(client: client) }
         pause = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: work)
@@ -253,10 +257,14 @@ final class ZhizhiInputController: IMKInputController {
             item.target = self
             item.state = on ? .on : .off
         }
+        let settings = Engine.shared.settings
+        let open = menu.addItem(withTitle: "打開知之…", action: #selector(openApp(_:)), keyEquivalent: "")
+        open.target = self
+        menu.addItem(.separator())
         let hasModel = Engine.shared.ai.isAvailable
-        toggle(hasModel ? "AI 自動修正同音字" : "AI 自動修正同音字（尚未安裝模型）", #selector(toggleAI(_:)), on: hasModel && Preferences.aiCorrections, enabled: hasModel)
-        toggle("暫停學習", #selector(toggleLearning(_:)), on: Preferences.learningPaused)
-        toggle("保留句子歷史（90 天，加密）", #selector(toggleHistory(_:)), on: Preferences.sentenceHistory)
+        toggle(hasModel ? "AI 自動修正同音字" : "AI 自動修正同音字（尚未安裝模型）", #selector(toggleAI(_:)), on: hasModel && settings.aiCorrections, enabled: hasModel)
+        toggle("暫停學習", #selector(toggleLearning(_:)), on: settings.learningPaused)
+        toggle("保留句子歷史（90 天，加密）", #selector(toggleHistory(_:)), on: settings.sentenceHistory)
         let clearHistory = menu.addItem(withTitle: "清除句子歷史", action: #selector(clearSentenceHistory(_:)), keyEquivalent: "")
         clearHistory.target = self
         menu.addItem(.separator())
@@ -272,11 +280,16 @@ final class ZhizhiInputController: IMKInputController {
     }
 
     @objc private func toggleAI(_ sender: Any?) {
-        Preferences.aiCorrections.toggle()
-        if !Preferences.aiCorrections { Engine.shared.ai.stop() }
+        Engine.shared.update { $0.aiCorrections.toggle() }
+        if !Engine.shared.settings.aiCorrections { Engine.shared.ai.stop() }
     }
-    @objc private func toggleLearning(_ sender: Any?) { Preferences.learningPaused.toggle() }
-    @objc private func toggleHistory(_ sender: Any?) { Preferences.sentenceHistory.toggle() }
+    @objc private func toggleLearning(_ sender: Any?) { Engine.shared.update { $0.learningPaused.toggle() } }
+    @objc private func toggleHistory(_ sender: Any?) { Engine.shared.update { $0.sentenceHistory.toggle() } }
+    @objc private func openApp(_ sender: Any?) {
+        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.jimmylc.Zhizhi") {
+            NSWorkspace.shared.openApplication(at: url, configuration: NSWorkspace.OpenConfiguration())
+        }
+    }
     @objc private func clearSentenceHistory(_ sender: Any?) { Engine.shared.clearHistory() }
     @objc private func toggleDebugLog(_ sender: Any?) { DebugLog.shared.enabled.toggle() }
     @objc private func clearDebugLog(_ sender: Any?) { DebugLog.shared.clear() }

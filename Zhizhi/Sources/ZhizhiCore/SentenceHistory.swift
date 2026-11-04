@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import Security
 
 /// Committed sentences, each sealed on its own line with AES-GCM. Holds no app name or URL,
 /// keeps 90 days, and is excluded from backups. The key comes from the caller (the Keychain).
@@ -103,5 +104,28 @@ public enum LearningExclusions {
     public static func excludes(bundleID: String?) -> Bool {
         guard let id = bundleID else { return true }   // unknown client: stay on the safe side
         return prefixes.contains { id.hasPrefix($0) }
+    }
+}
+
+/// The sentence history's key, in the login Keychain on this device only.
+public enum Keychain {
+    private static let query: [String: Any] = [
+        kSecClass as String: kSecClassGenericPassword,
+        kSecAttrService as String: "com.jimmylc.inputmethod.Zhizhi.history",
+        kSecAttrAccount as String: "sentence-history-key",
+    ]
+
+    public static func historyKey() -> SymmetricKey? {
+        var lookup = query
+        lookup[kSecReturnData as String] = true
+        var found: CFTypeRef?
+        if SecItemCopyMatching(lookup as CFDictionary, &found) == errSecSuccess, let data = found as? Data {
+            return SymmetricKey(data: data)
+        }
+        let key = SymmetricKey(size: .bits256)
+        var add = query
+        add[kSecValueData as String] = key.withUnsafeBytes { Data($0) }
+        add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        return SecItemAdd(add as CFDictionary, nil) == errSecSuccess ? key : nil
     }
 }

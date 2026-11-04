@@ -62,6 +62,7 @@ public final class Decoder {
     public var costs = Costs()
     public var preference = LanguagePreference.chineseFirst
     public var autoSpace = true
+    public var punctuationWidth = Settings.PunctuationWidth.follow
     public var commonWordsThreeLetters = 20_000
     public var commonWordsLonger = 60_000
     public var commonWordsTwoLetters = 3_000
@@ -536,7 +537,13 @@ public final class Decoder {
         if key == " " {
             out.append(Edge(end: i + 1, kind: .other, text: " ", cost: costs.space, keepsLanguage: true))
         } else if let symbol = Self.symbols[key] {
-            let text = context == .chinese ? symbol.full : symbol.half
+            let full: Bool
+            switch punctuationWidth {
+            case .follow: full = context == .chinese
+            case .full: full = true
+            case .half: full = false
+            }
+            let text = full ? symbol.full : symbol.half
             out.append(Edge(end: i + 1, kind: .other, text: text, cost: 1, keepsLanguage: true))
         } else if key.isLetter, key.isLowercase, key.isASCII {
             out.append(Edge(end: i + 1, kind: .other, text: String(key), cost: costs.strayLetter, keepsLanguage: true))

@@ -121,6 +121,41 @@ public final class Lexicon {
         nodes[node].entries.sort { $0.score > $1.score }
     }
 
+    /// Undoes `addUserChinese`.
+    public func removeUserChinese(_ word: String, reading: String) {
+        removeUserEntry(word)
+        guard let node = node(for: reading) else { return }
+        nodes[node].entries.removeAll { $0.word == word }
+    }
+
+    /// A reading for any word: the stored one, or else its characters' most likely readings.
+    /// Stops at the first character with none. Walks the whole trie, so it is for the App, not typing.
+    public func suggestedReading(for word: String) -> String {
+        var found: [String: (score: Float, reading: String)] = [:]
+        let wanted = Set(word.map(String.init)).union([word])
+        let names = Dictionary(uniqueKeysWithValues: baseIDs.map { ($1, $0) })
+        func walk(_ node: Int, _ path: [String]) {
+            for entry in nodes[node].entries where wanted.contains(entry.word) {
+                if entry.score > found[entry.word]?.score ?? -.infinity {
+                    let reading = zip(path, entry.tones).map { $0 + Zhuyin.display(tone: $1) }.joined(separator: "-")
+                    found[entry.word] = (entry.score, reading)
+                }
+            }
+            guard path.count < word.count else { return }
+            for (base, child) in nodes[node].children {
+                if let name = names[base] { walk(Int(child), path + [name]) }
+            }
+        }
+        walk(0, [])
+        if let whole = found[word] { return whole.reading }
+        var parts: [String] = []
+        for character in word {
+            guard let part = found[String(character)] else { break }
+            parts.append(part.reading)
+        }
+        return parts.joined(separator: "-")
+    }
+
     public func hasEntry(word: String, reading: String) -> Bool {
         guard let node = node(for: reading) else { return false }
         return nodes[node].entries.contains { $0.word == word }

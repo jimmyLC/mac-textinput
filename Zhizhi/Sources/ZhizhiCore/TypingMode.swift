@@ -10,6 +10,8 @@ public struct TypingMode: Equatable {
     }
 
     public static let leftShiftKeyCode: UInt16 = 56
+    /// The key that flips and toggles; nil turns both off.
+    public var switchKeyCode: UInt16? = TypingMode.leftShiftKeyCode
     static let flipWindow: TimeInterval = 1.0     // a slower tap while composing is not a flip
     static let toggleWindow: TimeInterval = 0.5   // stricter: a toggle changes all later typing
 
@@ -31,6 +33,17 @@ public struct TypingMode: Equatable {
     /// Any key or click between Shift down and up means it was not a lone tap.
     public mutating func otherInput() { shiftDownAt = nil }
 
+    public mutating func setSwitchKeyIfChanged(_ code: UInt16?) {
+        if code != switchKeyCode { setSwitchKey(code) }
+    }
+
+    /// A new choice of key must not leave English mode on with no key to leave it.
+    public mutating func setSwitchKey(_ code: UInt16?) {
+        switchKeyCode = code
+        shiftDownAt = nil
+        if code == nil { englishMode = false }
+    }
+
     public mutating func syncCaps(_ caps: Bool) -> Effect? {
         guard caps != capsOn else { return nil }
         capsOn = caps
@@ -38,7 +51,7 @@ public struct TypingMode: Equatable {
     }
 
     public mutating func flagsChanged(keyCode: UInt16, shift: Bool, composing: Bool, now: Date = Date()) -> Effect? {
-        guard keyCode == Self.leftShiftKeyCode else { shiftDownAt = nil; return nil }
+        guard keyCode == switchKeyCode else { shiftDownAt = nil; return nil }
         if shift { shiftDownAt = now; return nil }
         defer { shiftDownAt = nil }
         guard let down = shiftDownAt else { return nil }

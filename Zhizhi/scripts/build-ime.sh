@@ -10,6 +10,8 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp .build/release/Zhizhi "$APP/Contents/MacOS/Zhizhi"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+# Every build gets its own number, so the App can tell whether the installed copy is older.
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(date +%Y%m%d%H%M%S)" "$APP/Contents/Info.plist"
 cp -R Resources/zh-Hant.lproj Resources/Base.lproj "$APP/Contents/Resources/"
 cp "$ROOT/data/chinese-lexicon.tsv" "$ROOT/data/english-words.txt" "$APP/Contents/Resources/"
 swift scripts/make-icon.swift assets/icon.svg "$APP/Contents/Resources/Zhizhi.tiff"

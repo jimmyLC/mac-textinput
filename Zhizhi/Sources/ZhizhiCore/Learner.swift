@@ -45,6 +45,9 @@ public struct PersonalDictionary: Equatable {
         return true
     }
 
+    /// The user added it back by hand, so it may stay and learning may see it again.
+    public mutating func allow(_ text: String) { deleted.remove(text) }
+
     /// Removes an entry for good: learning will not bring it back.
     public mutating func delete(_ text: String) {
         entries.removeAll { $0.text == text }
@@ -147,6 +150,20 @@ public final class Learner {
         if entry.reading.isEmpty { lexicon.addUserEnglish(entry.text) }
         else { lexicon.addUserChinese(entry.text, reading: entry.reading) }
         onChange?()
+    }
+
+    /// Takes over a dictionary edited elsewhere (the App), adjusting typing to match.
+    public func reload(_ new: PersonalDictionary) {
+        for old in dictionary.entries where !new.entries.contains(where: { $0.text == old.text && $0.reading == old.reading }) {
+            if old.reading.isEmpty { lexicon.removeUserEntry(old.text) }
+            else { lexicon.removeUserChinese(old.text, reading: old.reading) }
+        }
+        var added = PersonalDictionary()
+        for entry in new.entries where !dictionary.entries.contains(where: { $0.text == entry.text && $0.reading == entry.reading }) {
+            added.add(entry)
+        }
+        added.load(into: lexicon)
+        dictionary = new
     }
 
     /// Removes an entry from the dictionary and from typing, for good.

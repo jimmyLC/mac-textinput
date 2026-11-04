@@ -30,7 +30,10 @@ public final class Session {
         public var corrected: [Int] = []   // character offsets in `composing` the AI just changed
     }
 
-    public static let pageSize = 9
+    public static let defaultPageSize = 9
+    public var pageSize = Session.defaultPageSize
+    public var tabOffers = true
+    public var escapeClears = false
     public static let symbols = ["，", "。", "、", "；", "：", "？", "！", "「", "」", "『", "』", "（", "）", "《", "》", "〈", "〉",
                                  "…", "——", "～", "·", "＋", "－", "×", "÷", "＝", "％", "＠", "＃", "＆", "＊", "／", "＼",
                                  "→", "←", "↑", "↓", "○", "●", "☆", "★", "✓", "✗", "°", "℃", "＄", "€", "£", "¥"]
@@ -183,7 +186,8 @@ public final class Session {
             if composition.isEmpty { output.handled = false }
             else if let offer = currentOffer() { composition.accept(offer) }
         case .escape:
-            output.handled = isComposing       // Esc never drops the text
+            output.handled = isComposing
+            if escapeClears { composition = Composition() }   // otherwise Esc never drops the text
         case .shiftTap:
             if composition.isEmpty { output.handled = false } else { composition.flipBeforeCursor(decoder) }
         case .undoCorrection:
@@ -200,10 +204,10 @@ public final class Session {
         output.composing = text
         output.caret = caret
         if listOpen {
-            let pages = max(1, (listItems.count + Self.pageSize - 1) / Self.pageSize)
-            let page = listIndex / Self.pageSize
-            let start = page * Self.pageSize
-            output.candidates = Candidates(items: Array(listItems[start..<min(start + Self.pageSize, listItems.count)]),
+            let pages = max(1, (listItems.count + pageSize - 1) / pageSize)
+            let page = listIndex / pageSize
+            let start = page * pageSize
+            output.candidates = Candidates(items: Array(listItems[start..<min(start + pageSize, listItems.count)]),
                                            selected: listIndex - start, page: page, pageCount: pages)
         } else {
             output.offer = currentOffer()?.text.trimmingCharacters(in: .whitespaces)
@@ -215,18 +219,18 @@ public final class Session {
     private func handleList(_ key: Key, _ output: inout Output) -> Bool {
         switch key {
         case .character(let ch):
-            if let n = ch.wholeNumberValue, (1...Self.pageSize).contains(n) {
-                let index = (listIndex / Self.pageSize) * Self.pageSize + n - 1
+            if let n = ch.wholeNumberValue, (1...pageSize).contains(n) {
+                let index = (listIndex / pageSize) * pageSize + n - 1
                 if index < listItems.count { choose(index) }
                 return true
             }
-            if ch == " " { moveList(Self.pageSize); return true }
+            if ch == " " { moveList(pageSize); return true }
             listOpen = false
             return false
         case .down: moveList(1); return true
         case .up: moveList(-1); return true
-        case .right, .pageDown: moveList(Self.pageSize); return true
-        case .left, .pageUp: moveList(-Self.pageSize); return true
+        case .right, .pageDown: moveList(pageSize); return true
+        case .left, .pageUp: moveList(-pageSize); return true
         case .enter: choose(listIndex); return true
         case .escape, .backspace: listOpen = false; return true
         case .tab: return true
@@ -268,7 +272,7 @@ public final class Session {
     }
 
     private func currentOffer() -> Decoder.Offer? {
-        guard !composition.isEmpty else { return nil }
+        guard tabOffers, !composition.isEmpty else { return nil }
         let keys = composition.keys, cursor = composition.cursor
         // A word just finished with a space: offer its spelling fix, English segments only.
         if cursor >= 2, keys[cursor - 1] == " " {
