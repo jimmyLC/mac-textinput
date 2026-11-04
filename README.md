@@ -39,6 +39,9 @@ git submodule update --init --recursive
 | `data/chinese-common-10000.txt` / `.tsv` | 自建中文常用字詞 10,000 筆,含聚合分數與注音讀音。 |
 | `data/chinese-associated-phrases.tsv` | 聯想詞 94,784 筆(M2 聯想詞功能用)。 |
 | `data/chinese-manifest.json` | 中文詞典建置後設:來源、SHA-256、統計。 |
+| `data/chinese-unigrams.tsv` | 依讀音索引的 unigram 表 170,926 列(`讀音<TAB>詞<TAB>log10 機率`),對應 `unigramsFor(reading)`。 |
+| `data/chinese-bigrams.tsv` | **詞接詞統計**(bigram)1,500,000 組(`前詞<TAB>後詞<TAB>共現次數`),對應 `bigramsFor(prevWords)`。 |
+| `data/chinese-bigram-stats.json` | bigram 建置後設:語料來源、SHA-256、統計。 |
 
 ### 詞典建置
 
@@ -47,7 +50,9 @@ git submodule update --init --recursive
 ```bash
 python3 -m venv .venv-dict && .venv-dict/bin/pip install wordfreq
 .venv-dict/bin/python tools/build_english_dict.py    # 英文詞典
-python3 tools/build_chinese_dict.py                   # 中文詞典
+python3 tools/build_chinese_dict.py                   # 中文詞典(詞庫 + unigram 表)
+python3 tools/build_chinese_bigrams.py                # 中文詞接詞(bigram)統計
+python3 tools/eval_bigram_lm.py                       # 量化 bigram 對選字的幫助
 # --offline:只用本機 cache;--check:比對既有輸出,不一致則 exit 1(CI 用)
 ```
 
@@ -104,6 +109,67 @@ count = round(10 ^ z)
 
 已知限制:上游語料來自影視字幕,偏口語(「我們」「什麼」等高頻,書面公文詞相對靠後);
 分數不可跨上游版本比較,更新詞庫後需重build。
+
+#### 中文詞接詞(bigram)統計
+
+**為什麼需要**:`chinese-lexicon.tsv` 只有「詞本身的頻率」(unigram),沒有「詞接詞的頻率」。
+`Formosa::Gramambular` 的 LM 介面本來就要 `bigramsFor(prevWords)`;缺了這一層,
+同音詞只能靠詞頻猜,整句正確率會卡在瓶頸上。
+
+**來源**:中文維基百科 dump(CC BY-SA 4.0),依日期固定版本:
+
+```
+https://dumps.wikimedia.org/zhwiki/20261101/zhwiki-20261101-pages-articles-multistream.xml.bz2
+```
+
+multistream 格式由數萬個獨立 bz2 stream 串接,index 檔(`pageid:byteOffset:title`)可據以平行解壓縮。
+
+**管線**:
+
+```
+tools/build_chinese_bigrams.py
+  ├─ 依 index 切 8 個連續區塊,平行解壓縮
+  ├─ tools/zhsegment(Swift):抽 <text> 內文 → 簡繁轉換 → 最長匹配斷詞
+  │   (詞典=data/chinese-lexicon.tsv)→ 計 bigram;批次檔依 (前詞,後詞) 排序輸出
+  ├─ sort -m(k-way merge)+ awk 串流加總(全程磁碟,記憶體不隨語料成長)
+  └─ 依次數取前 N 組 → data/chinese-bigrams.tsv
+```
+
+**引擎端融合公式**(bigram 有計數時才啟用,否則純 unigram):
+
+```
+P_u(w)      = unigram 機率(讀音條件下)
+P_b(w|prev) = (count(prev,w) + α·P_u(w)) / (count(prev) + α)     # α = 0.10
+score(w)    = log10[ λ·P_b(w|prev) + (1-λ)·P_u(w) ]              # λ = 0.60
+```
+
+**產出規模**:
+
+| 指標 | 值 |
+|---|---|
+| 語料 | 中文維基百科 20261101(49,830 個 bz2 stream,3.64 GB) |
+| 共現 ≥ 2 次的配對 | 10,982,388 組 |
+| 輸出(前 N 組,依 key 排序) | 1,500,000 組 / 22.3 MB |
+
+**效果量測**(`tools/eval_bigram_lm.py`,leave-one-out:評估某配對時先扣掉它自己的 1 次計數):
+
+| 指標 | unigram only | unigram + bigram |
+|---|---|---|
+| 同讀音候選詞中正解排第一的比例 | 59.2% | **82.5%**(+23.3pp) |
+| 共現 20–99 次的配對 | 59.0% | 79.8%(+20.9pp) |
+| 共現 100+ 次的配對 | 59.6% | 86.1%(+26.5pp) |
+| 手寫歧義句集(的/得/地、在/再、做/作…) | 14/33 | **17/33** |
+
+→ bigram 這一層是 LLM reranker 之前的**免費上下文訊號**:純查表、延遲為 0、不需模型。
+
+**兩個關鍵工程細節**(踩過的坑):
+
+1. **維基百科 dump 是簡體**,而本專案詞庫是繁體(國 -2.71 vs 国 -7.90)。
+   直接計 bigram 會得到「中/国 = 203 萬次」這種對繁體 IME 毫無意義的統計。
+   故計數前先做簡→繁轉換:字形層用 OpenCC `STCharacters`、片語層用 `STPhrases`
+   (解決 里/裡、發/髮、布/佈 等單字歧義),歧義字再以**本專案詞庫的分數**消歧。
+2. **詞彙單位與詞庫一致**:切分用的是 `data/chinese-lexicon.tsv` 的詞(McBopomofo 的詞),
+   所以 bigram 的詞單位與 LM 的詞單位可直接對接,不需再對齊。
 
 ## 上游與授權
 

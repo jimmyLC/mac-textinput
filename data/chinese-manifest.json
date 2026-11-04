@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T15:02:03+00:00",
+  "generatedAt": "2026-11-04T08:42:03+00:00",
   "generator": "tools/build_chinese_dict.py",
   "model": "zhuyinlm-ime/chinese-dict v1",
   "source": {
@@ -21,6 +21,7 @@
     "commonTop": 10000,
     "multiReadingWords": 8615,
     "associatedPhrases": 94784,
+    "unigramRows": 170926,
     "coverageOfMassPercent": 82.1,
     "thresholdScore": -4.881877
   }

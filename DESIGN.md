@@ -136,11 +136,36 @@ Deactivated
 
 ## 5. 學習系統
 
-> **詞庫來源**:統計層的初始語料為本專案**自建**的兩套資料——
+> **詞庫來源**:統計層的初始語料為本專案**自建**的三套資料——
 > 中文詞庫取自 McBopomofo 官方發布(MIT)的 `data.txt`,本機解析成
 > `data/chinese-lexicon.tsv`(160,792 詞,含多讀音與 log10 分數);
-> 英文詞庫見 `data/english-words.txt`(103,452 詞,自建 Zipf 混合權重)。
-> 兩者的來源、授權、統計與重建方式見 README〈詞典建置〉,建置腳本為 `tools/build_chinese_dict.py`、`tools/build_english_dict.py`。
+> 中文**詞接詞(bigram)**統計由 `tools/build_chinese_bigrams.py` 自中文維基百科
+> (CC BY-SA 4.0)語料建置,見 `data/chinese-bigrams.tsv`;
+> 英文詞庫見 `data/english-words.txt`(113,092 詞,自建 Zipf 混合權重)。
+> 各檔的來源、授權、統計與重建方式見 README〈詞典建置〉。
+
+### 5.0 統計層資料契約(LM 的三張表)
+
+Gramambular 的 LM 介面需要 `unigramsFor(reading)` 與 `bigramsFor(prevWords)`,
+本專案對應三張純文字表(引擎啟動時載入,不需要二進位格式):
+
+| 檔案 | 格式 | 對應介面 |
+|---|---|---|
+| `data/chinese-unigrams.tsv` | `讀音<TAB>詞<TAB>log10 機率` | `unigramsFor(reading)` |
+| `data/chinese-bigrams.tsv` | `前詞<TAB>後詞<TAB>共現次數` | `bigramsFor(prevWords)` |
+| `data/english-words.txt` | `詞<TAB>權重` | 英文預測引擎的前綴 trie |
+
+**融合公式**(bigram 有計數時才啟用,否則純 unigram):
+
+```
+P_u(w)      = unigram 機率(讀音條件下)
+P_b(w|prev) = (count(prev,w) + α·P_u(w)) / (count(prev) + α)      # 加 α 平滑 + 回退
+score(w)    = log10[ λ·P_b(w|prev) + (1-λ)·P_u(w) ]                # λ = 0.60,α = 0.10
+```
+
+- `λ`、`α` 由 `tools/eval_bigram_lm.py` 在 dev 集掃描,結果見 README〈詞典建置〉。
+- **bigram 只做詞與詞的排序**,不影響讀音層;讀音仍由 `Formosa::Mandarin` 決定。
+- 這一層是 LLM reranker 之前的**免費上下文訊號**:延遲為 0(查表),不需模型。
 
 ### 5.1 統計層:selection boost(先用,最重要)
 - `ChineseSelectionMemory.recordSelection(reading:value:)` → 內存 `key=(reading,value) -> count`

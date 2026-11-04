@@ -16,3 +16,7 @@ __pycache__/
 # 詞典建置快取與工具環境
 data/.cache/
 .venv-dict/
+
+# Python 快取
+__pycache__/
+*.pyc
