@@ -1,0 +1,20 @@
+{
+  "generatedAt": "2026-11-04T09:16:48+00:00",
+  "generator": "tools/build_chinese_bigrams.py",
+  "corpus": {
+    "name": "Chinese Wikipedia",
+    "license": "CC BY-SA 4.0",
+    "dumpDate": "20261101",
+    "url": "https://dumps.wikimedia.org/zhwiki/20261101/zhwiki-20261101-pages-articles-multistream.xml.bz2",
+    "sha256": "d182607e00a8e022792f10430ceeba9f1306f938825119f715218cd8b1b73af3",
+    "streams": 49830,
+    "variant": "繁體(zh-tw)"
+  },
+  "segmenter": "tools/zhsegment(最長匹配,詞典=data/chinese-lexicon.tsv)",
+  "counts": {
+    "distinctPairs": 10982388,
+    "keptPairs": 1500000,
+    "minCount": 2,
+    "maxPairs": 1500000
+  }
+}

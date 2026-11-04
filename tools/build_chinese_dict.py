@@ -221,6 +221,12 @@ def main() -> int:
         "chinese-lexicon.tsv": "".join(
             f"{w}\t{s:.8f}\t{'|'.join(r for r, _ in pairs)}\n" for w, s, pairs in aggregated
         ),
+        # 依讀音索引的 unigram 表:Gramambular 的 unigramsFor(reading) 直接吃這張
+        "chinese-unigrams.tsv": "".join(
+            f"{r}\t{w}\t{s:.8f}\n"
+            for w, _, pairs in aggregated
+            for r, s in pairs
+        ),
     }
     associated = parse_associated(associated_txt)
     if associated:
@@ -252,6 +258,7 @@ def main() -> int:
             "commonTop": COMMON_SIZE,
             "multiReadingWords": multi_reading,
             "associatedPhrases": len(associated),
+            "unigramRows": sum(len(pairs) for _, _, pairs in aggregated),
             "coverageOfMassPercent": round(coverage, 2),
             "thresholdScore": round(top[-1][1], 6),
         },
