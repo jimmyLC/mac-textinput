@@ -49,6 +49,7 @@ ZH_CACHE = CACHE / "zhwiki"
 ZHSEG_SRC = ROOT / "tools" / "zhsegment" / "main.swift"
 LEXICON = DATA / "chinese-lexicon.tsv"
 S2T_MAP = ROOT / "tools" / "s2t-map.txt"
+S2T_PHRASES = ROOT / "tools" / "s2t-phrases.txt"
 OUT_TSV = DATA / "chinese-bigrams.tsv"
 OUT_MANIFEST = DATA / "chinese-bigram-stats.json"
 
@@ -137,7 +138,44 @@ def build_s2t_resolved() -> Path:
     with path.open("w", encoding="utf-8") as out:
         for k, v in resolved.items():
             out.write(f"{k}\t{v}\n")
-    log(f"簡繁對照表:{len(resolved)} 字(其中 {ambiguous} 個歧義字依詞庫分數消歧)")
+    log(f"簡繁字形對照:{len(resolved)} 字(其中 {ambiguous} 個歧義字依詞庫分數消歧)")
+    return path
+
+
+def build_s2t_phrases_resolved() -> Path:
+    """產生「簡→繁」片語對照表(多候選以詞庫分數消歧)。"""
+    scores: dict[str, float] = {}
+    with LEXICON.open(encoding="utf-8") as fh:
+        for line in fh:
+            parts = line.rstrip("\n").split("\t")
+            if len(parts) >= 2:
+                try:
+                    scores[parts[0]] = float(parts[1])
+                except ValueError:
+                    pass
+    resolved: dict[str, str] = {}
+    ambiguous = 0
+    with S2T_PHRASES.open(encoding="utf-8") as fh:
+        for line in fh:
+            if line.startswith("#") or not line.strip():
+                continue
+            parts = line.rstrip("\n").split("\t")
+            if len(parts) != 2:
+                continue
+            key = parts[0].strip()
+            cands = parts[1].split()
+            if not cands:
+                continue
+            if len(cands) == 1:
+                resolved[key] = cands[0]
+                continue
+            ambiguous += 1
+            resolved[key] = max(cands, key=lambda c: (scores.get(c, -20.0), -cands.index(c)))
+    path = CACHE / "s2t-phrases-resolved.tsv"
+    with path.open("w", encoding="utf-8") as out:
+        for k, v in resolved.items():
+            out.write(f"{k}\t{v}\n")
+    log(f"簡繁片語對照:{len(resolved)} 條(其中 {ambiguous} 條多候選依詞庫分數消歧)")
     return path
 
 
@@ -197,7 +235,7 @@ def worker(task: tuple) -> list[str]:
     每批文字單獨交給斷詞器,輸出成一個「已依 (前詞,後詞) 排序」的計數檔;
     記憶體不隨語料量成長,合併交由主程式做 k-way merge。
     """
-    tag, offsets, dump_path, binary, lexicon, outdir, s2t = task
+    tag, offsets, dump_path, binary, lexicon, outdir, s2t, s2t_phrases = task
     files: list[str] = []
     buf: list[bytes] = []
     buf_size = 0
@@ -211,7 +249,10 @@ def worker(task: tuple) -> list[str]:
         buf = []
         buf_size = 0
         result = subprocess.run(
-            [binary, lexicon, "--wiki", "--by-key", "--s2t", str(s2t)],
+            [
+                binary, lexicon, "--wiki", "--by-key",
+                "--s2t", str(s2t), "--s2t-phrases", str(s2t_phrases),
+            ],
             input=data,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -278,6 +319,7 @@ def main() -> int:
         dump_path, index_path = ensure_downloads()
     binary = build_zhsegment()
     s2t_path = build_s2t_resolved()
+    s2t_phrases_path = build_s2t_phrases_resolved()
     offsets = read_offsets(index_path)
     total_streams = len(offsets)
     if args.streams:
@@ -295,7 +337,7 @@ def main() -> int:
         tasks.append(
             (
                 f"w{i}", offsets[start:end], str(dump_path), str(binary),
-                str(LEXICON), str(tmpdir), str(s2t_path),
+                str(LEXICON), str(tmpdir), str(s2t_path), str(s2t_phrases_path),
             )
         )
 

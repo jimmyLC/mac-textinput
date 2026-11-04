@@ -1,12 +1,20 @@
 // zhsegment — ZhuyinLM-IME 繁體中文斷詞 + 詞接詞(bigram)計數器
 //
 // 用法:
-//   zhsegment <lexicon.tsv>            # 從 stdin 讀文字,向 stdout 輸出 bigram 計數
-//   zhsegment <lexicon.tsv> --words    # 輸出「詞\t次數」(除錯用)
+//   zhsegment <lexicon.tsv> [--wiki] [--by-key] [--keep-ones] [--segment]
+//              [--s2t <chars.tsv>] [--s2t-phrases <phrases.tsv>]
 //
 // 輸入:任意文字(UTF-8)。中文以「最長匹配」(forward maximum matching)斷詞,
 //       詞典為 data/chinese-lexicon.tsv 的第一欄;英數以連續 run 為一個 token。
-// 輸出(預設):「前詞\t後詞\t次數」,依次數由大到小;次數門檻由呼叫端過濾。
+// 輸出(預設):「前詞\t後詞\t次數」,依次數由大到小。
+//
+// 選項
+//   --wiki            僅取 MediaWiki XML 的 <text>…</text> 內文
+//   --by-key          依 (前詞,後詞) 的 UTF-8 位元組序輸出(供外部 k-way merge)
+//   --keep-ones       保留只出現一次的配對(除錯用)
+//   --segment         輸出斷詞結果(每行一句,詞以 / 分隔)
+//   --s2t FILE        簡→繁 字形對照表(逐字)
+//   --s2t-phrases F   簡→繁 片語對照表(優先於字形,解決 里/裡、發/髮 等歧義)
 //
 // 設計重點:
 //   - 詞 ID 以 UInt32 表示,bigram key 打包成 UInt64 → 記憶體約為 String 版 1/4。
@@ -21,6 +29,12 @@ import Foundation
 final class TrieNode {
     var children: [UInt32: TrieNode] = [:]
     var isWord = false
+}
+
+/// 片語對照的 trie(節點可帶對應值)
+final class PhraseNode {
+    var children: [UInt32: PhraseNode] = [:]
+    var value: [Unicode.Scalar]? = nil
 }
 
 final class Vocab {
@@ -61,27 +75,16 @@ final class Segmenter {
     let vocab = Vocab()
     var maxLen: Int
     var oovMap: [UInt32: UInt32] = [:]
-    /// 簡體 → 繁體 字形對照(維基百科 dump 為簡體,需先轉換方能對上繁體詞庫)
+    /// 簡體 → 繁體 字形對照
     var s2t: [UInt32: Unicode.Scalar] = [:]
+    /// 簡體 → 繁體 片語對照(trie)
+    var phraseRoot: PhraseNode? = nil
+    var phraseFirstChars: Set<UInt32> = []
+    var maxPhraseLen = 1
 
     init(root: TrieNode, maxLen: Int) {
         self.root = root
         self.maxLen = maxLen
-    }
-
-    /// 套用簡繁轉換;未登錄的字原樣保留
-    func convert(_ slice: ArraySlice<Unicode.Scalar>) -> ArraySlice<Unicode.Scalar> {
-        if s2t.isEmpty { return slice }
-        var out: [Unicode.Scalar] = []
-        out.reserveCapacity(slice.count)
-        for s in slice {
-            if let mapped = s2t[s.value] {
-                out.append(mapped)
-            } else {
-                out.append(s)
-            }
-        }
-        return out[...]
     }
 
     private func oovID(for v: UInt32) -> UInt32 {
@@ -97,11 +100,49 @@ final class Segmenter {
         return vocab.intern(word, oov: false)
     }
 
+    /// 簡繁轉換:先套片語(最長匹配),再套字形
+    func convert(_ slice: [Unicode.Scalar]) -> [Unicode.Scalar] {
+        var out: [Unicode.Scalar] = []
+        out.reserveCapacity(slice.count)
+        var i = 0
+        let n = slice.count
+        while i < n {
+            let c = slice[i]
+            if phraseRoot != nil, phraseFirstChars.contains(c.value) {
+                var node = phraseRoot
+                var best: [Unicode.Scalar]? = nil
+                var bestLen = 0
+                var j = i
+                while j < n, j - i < maxPhraseLen {
+                    guard let next = node?.children[slice[j].value] else { break }
+                    node = next
+                    j += 1
+                    if let v = node?.value {
+                        best = v
+                        bestLen = j - i
+                    }
+                }
+                if let v = best {
+                    out.append(contentsOf: v)
+                    i += bestLen
+                    continue
+                }
+            }
+            if let m = s2t[c.value] {
+                out.append(m)
+            } else {
+                out.append(c)
+            }
+            i += 1
+        }
+        return out
+    }
+
     /// 回傳 (tokenID, isOOV) 序列;標點與空白不產生 token(自然成為邊界)
-    func segment(_ scalars: ArraySlice<Unicode.Scalar>) -> [(UInt32, Bool)] {
+    func segment(_ scalars: [Unicode.Scalar]) -> [(UInt32, Bool)] {
         var out: [(UInt32, Bool)] = []
-        var i = scalars.startIndex
-        let n = scalars.endIndex
+        var i = 0
+        let n = scalars.count
         while i < n {
             let v = scalars[i].value
             if isHan(v) {
@@ -109,19 +150,16 @@ final class Segmenter {
                 var bestEnd = -1
                 var j = i
                 while j < n && j - i < maxLen {
-                    let sv = s2t[scalars[j].value] ?? scalars[j]
-                    guard let next = node.children[sv.value] else { break }
+                    guard let next = node.children[scalars[j].value] else { break }
                     node = next
                     j += 1
                     if node.isWord { bestEnd = j }
                 }
                 if bestEnd > i {
-                    let mapped = convert(scalars[i..<bestEnd])
-                    out.append((knownID(mapped), false))
+                    out.append((knownID(scalars[i..<bestEnd]), false))
                     i = bestEnd
                 } else {
-                    let mapped = s2t[v] ?? scalars[i]
-                    out.append((oovID(for: mapped.value), true))
+                    out.append((oovID(for: v), true))
                     i += 1
                 }
             } else if isLatinLetter(v) {
@@ -144,24 +182,74 @@ final class Segmenter {
     }
 }
 
-// MARK: - 載入詞典
+// MARK: - 載入詞典與對照表
 
 let args = CommandLine.arguments
 guard args.count >= 2 else {
-    FileHandle.standardError.write("usage: zhsegment <lexicon.tsv> [--words]\n".data(using: .utf8)!)
+    FileHandle.standardError.write("usage: zhsegment <lexicon.tsv> [options]\n".data(using: .utf8)!)
     exit(2)
 }
 let lexiconPath = args[1]
 let wordsOnly = args.contains("--words")
-let wikiMode = args.contains("--wiki")   // 僅取 <text>...</text> 內文(MediaWiki dump)
-let byKey = args.contains("--by-key")     // 依 (前詞,後詞) 排序輸出(供外部合併)
-let keepOnes = args.contains("--keep-ones")  // 保留只出現一次的配對(除錯用)
-let segmentOnly = args.contains("--segment")  // 輸出斷詞結果(不計 bigram)
+let wikiMode = args.contains("--wiki")
+let byKey = args.contains("--by-key")
+let keepOnes = args.contains("--keep-ones")
+let segmentOnly = args.contains("--segment")
 let s2tPath = args.firstIndex(of: "--s2t").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil }
+let s2tPhrasesPath = args.firstIndex(of: "--s2t-phrases").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil }
 
 guard let lexiconData = FileManager.default.contents(atPath: lexiconPath) else {
     FileHandle.standardError.write("cannot read lexicon: \(lexiconPath)\n".data(using: .utf8)!)
     exit(2)
+}
+
+func loadCharMap(_ path: String) -> [UInt32: Unicode.Scalar] {
+    var map: [UInt32: Unicode.Scalar] = [:]
+    guard let data = FileManager.default.contents(atPath: path) else { return map }
+    for line in String(decoding: data, as: UTF8.self).split(separator: "\n") {
+        if line.hasPrefix("#") { continue }
+        let parts = line.split(separator: "\t", maxSplits: 1)
+        if parts.count != 2 { continue }
+        let key = parts[0].trimmingCharacters(in: .whitespaces)
+        let val = parts[1].trimmingCharacters(in: .whitespaces)
+        guard key.count == 1, val.count == 1,
+              let k = key.unicodeScalars.first, let v = val.unicodeScalars.first else { continue }
+        map[k.value] = v
+    }
+    return map
+}
+
+func loadPhraseMap(_ path: String) -> (PhraseNode, Set<UInt32>, Int) {
+    let root = PhraseNode()
+    var firsts: Set<UInt32> = []
+    var maxLen = 1
+    guard let data = FileManager.default.contents(atPath: path) else { return (root, firsts, maxLen) }
+    for line in String(decoding: data, as: UTF8.self).split(separator: "\n") {
+        if line.hasPrefix("#") { continue }
+        let parts = line.split(separator: "\t", maxSplits: 1)
+        if parts.count != 2 { continue }
+        let key = parts[0].trimmingCharacters(in: .whitespaces)
+        let val = parts[1].trimmingCharacters(in: .whitespaces)
+        guard !key.isEmpty, !val.isEmpty else { continue }
+        let keyScalars = Array(key.unicodeScalars)
+        let valScalars = Array(val.unicodeScalars)
+        var node = root
+        for s in keyScalars {
+            if let next = node.children[s.value] {
+                node = next
+            } else {
+                let child = PhraseNode()
+                node.children[s.value] = child
+                node = child
+            }
+        }
+        node.value = valScalars
+        if let first = keyScalars.first {
+            firsts.insert(first.value)
+        }
+        maxLen = max(maxLen, keyScalars.count)
+    }
+    return (root, firsts, maxLen)
 }
 
 func makeSegmenter() -> Segmenter {
@@ -189,18 +277,13 @@ func makeSegmenter() -> Segmenter {
     }
     seg.maxLen = maxWordLen
     if let s2tPath {
-        if let s2tData = FileManager.default.contents(atPath: s2tPath) {
-            for line in String(decoding: s2tData, as: UTF8.self).split(separator: "\n") {
-                if line.hasPrefix("#") { continue }
-                let parts = line.split(separator: "\t", maxSplits: 1)
-                if parts.count != 2 { continue }
-                let key = parts[0].trimmingCharacters(in: .whitespaces)
-                let val = parts[1].trimmingCharacters(in: .whitespaces)
-                guard key.count == 1, val.count == 1,
-                      let k = key.unicodeScalars.first, let v = val.unicodeScalars.first else { continue }
-                seg.s2t[k.value] = v
-            }
-        }
+        seg.s2t = loadCharMap(s2tPath)
+    }
+    if let s2tPhrasesPath {
+        let (pRoot, firsts, pMax) = loadPhraseMap(s2tPhrasesPath)
+        seg.phraseRoot = pRoot
+        seg.phraseFirstChars = firsts
+        seg.maxPhraseLen = pMax
     }
     return seg
 }
@@ -213,14 +296,14 @@ if segmentOnly {
     let data = FileHandle.standardInput.readDataToEndOfFile()
     let text = String(decoding: data, as: UTF8.self)
     for line in text.split(separator: "\n") {
-        let scalars = Array(line.unicodeScalars)
+        let scalars = segmenter.convert(Array(line.unicodeScalars))
         var tokens: [String] = []
         var i = 0
         while i < scalars.count {
             if isHan(scalars[i].value) {
                 var j = i
                 while j < scalars.count && isHan(scalars[j].value) { j += 1 }
-                for tok in segmenter.segment(scalars[i..<j]) {
+                for tok in segmenter.segment(Array(scalars[i..<j])) {
                     tokens.append(segmenter.vocab.words[Int(tok.0)])
                 }
                 i = j
@@ -253,30 +336,17 @@ func pruneRare() {
     sincePrune = 0
 }
 
-/// MediaWiki XML:僅取 <text ...> ... </text> 內文,略過標記與其他元素
-func processWiki(text: String) {
-    var searchStart = text.startIndex
-    while true {
-        guard let openRange = text.range(of: "<text", range: searchStart..<text.endIndex) else { break }
-        // 跳過 <text...> 標籤本身
-        guard let gt = text[openRange.upperBound...].firstIndex(of: ">") else { break }
-        let contentStart = text.index(after: gt)
-        guard let closeRange = text.range(of: "</text>", range: contentStart..<text.endIndex) else { break }
-        process(text: String(text[contentStart..<closeRange.lowerBound]))
-        searchStart = closeRange.upperBound
-    }
-}
-
 /// 處理一段文字:以 CJK 連續 run 作為「句」(標點天然成為邊界),再斷詞、計 bigram
 func process(text: String) {
-    let scalars = Array(text.unicodeScalars)
+    let raw = Array(text.unicodeScalars)
     var i = 0
-    while i < scalars.count {
-        if isHan(scalars[i].value) {
+    while i < raw.count {
+        if isHan(raw[i].value) {
             var j = i
-            while j < scalars.count && isHan(scalars[j].value) { j += 1 }
+            while j < raw.count && isHan(raw[j].value) { j += 1 }
             if j - i >= 2 {
-                let tokens = segmenter.segment(scalars[i..<j])
+                let converted = segmenter.convert(Array(raw[i..<j]))
+                let tokens = segmenter.segment(converted)
                 if tokens.count >= 2 {
                     totalSentences += 1
                     for (idx, tok) in tokens.enumerated() {
@@ -297,7 +367,20 @@ func process(text: String) {
             i += 1
         }
     }
-    totalChars += Int64(scalars.count)
+    totalChars += Int64(raw.count)
+}
+
+/// MediaWiki XML:僅取 <text ...> ... </text> 內文,略過標記與其他元素
+func processWiki(text: String) {
+    var searchStart = text.startIndex
+    while true {
+        guard let openRange = text.range(of: "<text", range: searchStart..<text.endIndex) else { break }
+        guard let gt = text[openRange.upperBound...].firstIndex(of: ">") else { break }
+        let contentStart = text.index(after: gt)
+        guard let closeRange = text.range(of: "</text>", range: contentStart..<text.endIndex) else { break }
+        process(text: String(text[contentStart..<closeRange.lowerBound]))
+        searchStart = closeRange.upperBound
+    }
 }
 
 // MARK: - 串流讀取 stdin
