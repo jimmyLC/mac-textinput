@@ -6,6 +6,7 @@ if [[ ! -d "$ROOT/.build/McBopomofo/McBopomofo.xcodeproj" ]]; then
   exit 1
 fi
 python3 "$ROOT/scripts/check_build.py"
+python3 "$ROOT/scripts/check_english_dict.py"
 # The upstream update API test requires a live network service and is unrelated
 # to the input engine. Run it separately when checking upstream update services.
 xcodebuild -project "$ROOT/.build/McBopomofo/McBopomofo.xcodeproj" \

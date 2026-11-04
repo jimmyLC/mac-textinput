@@ -29,10 +29,10 @@ git submodule update --init --recursive
 
 | 檔案 | 內容 |
 |---|---|
-| `data/english-words.txt` | 自建英文預測詞頻表,51,074 行 TSV(`word<TAB>count`),count 為單調遞增權重。 |
+| `data/english-words.txt` | 自建英文預測詞頻表,86,408 行 TSV(`word<TAB>count`),count 為單調遞增權重。 |
 | `data/english-common-10000.txt` | 高信心核心 10,000 詞(頻率排序)。 |
 | `data/english-tech-terms.txt` | 技術 / 品牌 / 縮寫詞 257 筆,供 `includeEngineering` 開關使用。 |
-| `data/english-dictionary.txt` | 全量合法英文詞 373,359 筆(驗收用,無權重)。 |
+| `data/english-dictionary.txt` | 全量合法英文詞 384,323 筆(驗收用,無權重)。 |
 | `data/english-words-user.example.txt` | 使用者自訂詞檔格式範例(支援 `#` 註解、存檔熱載)。 |
 | `data/english-manifest.json` | 英文詞典建置後設:來源 URL、SHA-256、統計、權重參數。 |
 | `data/chinese-lexicon.tsv` | 自建全量中文詞庫 160,792 詞(`詞<TAB>分數<TAB>讀音`)。 |
@@ -62,7 +62,7 @@ python3 tools/eval_bigram_lm.py                       # 量化 bigram 對選字�
 |---|---|---|
 | [dwyl/english-words](https://github.com/dwyl/english-words) `words_alpha.txt` | 合法英文詞全集(369,804) | Unlicense |
 | [first20hours/google-10000-english](https://github.com/first20hours/google-10000-english) | 人工挑選常用詞(9,989) | MIT |
-| [hunspell en_US-large](https://github.com/en-wl/wordlist)(SCOWL) | 標準英文字典詞幹(60,796 小寫 / 15,511 專名) | SCOWL |
+| [hunspell en_US-large](https://github.com/en-wl/wordlist)(SCOWL) | 標準英文字典詞幹(60,796 小寫 / 15,511 專名),依 `.aff` 展開後 126,725 個標準詞 | SCOWL |
 | [wordfreq](https://github.com/wordfreq/wordfreq) 3.1.1 | 詞頻(Zipf 值) | MIT |
 | `tools/tech-terms.txt` | 技術 / 品牌 / 縮寫詞(257 詞) | 本專案自製 |
 
@@ -71,30 +71,39 @@ python3 tools/eval_bigram_lm.py                       # 量化 bigram 對選字�
 ```
 z  = wordfreq.zipf_frequency(word, 'en')     # 0..8 的對數詞頻
 z += 0.25  若命中 google-10000               # 人工挑選的常用詞
-z += 0.10  若命中 hunspell 小寫詞幹          # 標準英文字典收錄
+z += 0.10  若命中 hunspell 小寫詞幹          # 標準英文字典收錄(詞形變化不加權)
 z  = max(z, 2.20)  若為自建技術詞            # 技術詞可被預測,但不擠掉常用詞
-「已驗證」= 標準字典(hunspell)/ google-10k / 技術詞;dwyl 不算已驗證
-未通過驗證者(多為人名/地名):z < 3.5 一律不進預測表
-疑似誤字(與常用詞只差一次編輯、常用度差 ≥ 10^2.5):剔除
+「標準詞」= hunspell 小寫詞幹 + 依 .aff 展開的詞形變化
+「已驗證」= 標準詞 / google-10k / 技術詞;dwyl 不算已驗證
+未通過驗證者(多為專名、非標準拼寫與冷僻詞):z < 3.5 不進預測表,常用詞的 2–3 字母前綴例外
+疑似誤字(與常用詞只差一次編輯、常用度差 ≥ 10^2.5,3 字母以內 ≥ 10^2.9):剔除
+  不檢查:標準詞、技術詞、z ≥ 4 的詞、z ≥ 2.5 且為常用詞 2–7 字母前綴的詞
 count = round(10 ^ z)
 ```
 
-**三條資料層規則,都是為了配合輸入法的實際行為**:
+**四條資料層規則,都是為了配合輸入法的實際行為**:
 
 1. **dwyl 不進預測表**(只留 `english-dictionary.txt` 當驗收字典):dwyl 是「所有英文字串」
    的集合,含大量非標準拼寫與冷僻 token。
 2. **疑似誤字剔除**:與常用詞只差一次編輯、且該常用詞常用度高 10^2.5 倍以上的 token
-   不進預測表(3 字母 token 用更嚴的門檻 2.9,避免誤殺 "hel" 這類真詞)。
+   不進預測表(3 字母以內用更嚴的門檻 2.9,短字容易撞到常用短詞)。
    → 使用者打 `enviroment` / `untill` / `wich` 時,拼字修正才會提示正確寫法。
-3. **常用詞的 2–3 字母前綴保留**:例如 `hel` 是 `hello` 的前綴,輸入進行中就該顯示英文。
-   → 這條同時擋掉 `rul`(`rule` 的誤字)把中文組字誤判成英文。
+3. **標準詞與技術詞不算誤字**:`knot`、`hive`、`git` 雖然只差 `not`、`have`、`get` 一次編輯,
+   但都是真詞;`violates`、`neatly`、`stacks` 這類詞形變化也算標準詞。`dwyl` 裡的錯字
+   (`wich`、`untill`)不在標準詞內,所以 `english-dictionary.txt` 本身不能當誤字的判準。
+4. **前綴保留**:高頻詞的 2–3 字母前綴即使未驗證也能進表(`hel` ⊂ `hello`),輸入進行中就顯示英文;
+   另外,常用詞的 2–7 字母前綴在 z ≥ 2.5 時不算誤字。
+   `rul` 自身太冷僻(z < 2.5),仍被第 2 條擋下,不會把中文組字誤判成英文。
 
-分層(僅計入實際進表者):core 10,399 / common 40,572 / tech 103;
-另略過 191,814 個「未經字典驗證且不常見」的詞與 30,788 個疑似誤字。
+建置可重現:同樣的來源在任何 `PYTHONHASHSEED` 下都產生相同輸出,
+`scripts/check_english_dict.py --rebuild --python .venv-dict/bin/python` 會驗證這點與上述詞表。
+
+分層(僅計入實際進表者):core 10,673 / common 75,614 / tech 121;
+另略過 89,420 個「未經字典驗證且不常見」的詞與 18,826 個疑似誤字。
 遠端來源只存於本機 `data/.cache/`(不入版控),本 repo 僅散布**衍生**統計檔。
 
 已知限制:僅純字母(縮寫如 `mp3`、`k8s` 只在 `english-tech-terms.txt`)、不含撇號與連字號、
-無詞形展開、Zipf 來自字幕語料(偏口語)。
+Zipf 來自字幕語料(偏口語)。
 
 #### 中文詞典
 

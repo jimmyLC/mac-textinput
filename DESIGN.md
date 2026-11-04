@@ -141,7 +141,7 @@ Deactivated
 > `data/chinese-lexicon.tsv`(160,792 詞,含多讀音與 log10 分數);
 > 中文**詞接詞(bigram)**統計由 `tools/build_chinese_bigrams.py` 自中文維基百科
 > (CC BY-SA 4.0)語料建置,見 `data/chinese-bigrams.tsv`;
-> 英文詞庫見 `data/english-words.txt`(51,075 詞,自建 Zipf 混合權重 + 疑似誤字剔除)。
+> 英文詞庫見 `data/english-words.txt`(86,408 詞,自建 Zipf 混合權重 + 疑似誤字剔除)。
 > 各檔的來源、授權、統計與重建方式見 README〈詞典建置〉。
 
 ### 5.0 統計層資料契約(LM 的三張表)
@@ -178,7 +178,7 @@ score(w)    = log10[ λ·P_b(w|prev) + (1-λ)·P_u(w) ]                # λ = 0.
 - Shift+Enter 聯想:游標前字的注音查 continuations(prefix) → 候選出現
 
 ### 5.3 英文邊打邊預測引擎(呈 F14 實證)
-- `english-words.txt`:**本專案自建的預測詞頻表**,TSV(`word<TAB>count`),count 為**單調遞增的權重**(非真實語料次數);共 51,075 詞,另附 `english-tech-terms.txt`(257 筆技術/品牌詞,對應 `includeEngineering` 開關)。建置來源、授權、權重模型(Zipf + 字典驗證加權)與分層統計見 README〈詞典建置〉,可用 `tools/build_english_dict.py` 完整重現。
+- `english-words.txt`:**本專案自建的預測詞頻表**,TSV(`word<TAB>count`),count 為**單調遞增的權重**(非真實語料次數);共 86,408 詞,另附 `english-tech-terms.txt`(257 筆技術/品牌詞,對應 `includeEngineering` 開關)。建置來源、授權、權重模型(Zipf + 字典驗證加權)與分層統計見 README〈詞典建置〉,可用 `tools/build_english_dict.py` 完整重現。
 - `english-usage.json`(本機記憶):`word → {updated: timestamp, score: Float}` — score 有使用累加(**使用一次 +1**)與**時間衰減**(score≈1.999x/1.99x 且 updated 隨之變動,推斷為隨時間 tick 的半衰式衰減);偏好可整體重置("Forgetting them puts the predictions back to the bundled order")。
 - `english-words-user.txt`:可用 **# 註解**、**存檔即熱載**(字串 "改完存檔後,下次組字時自動重新載入"),**總是排在內建詞庫之前**(自訂品牌/術語優先)。
 

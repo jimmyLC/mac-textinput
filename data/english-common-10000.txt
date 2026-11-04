@@ -6801,6 +6801,7 @@ trophy
 tweet
 unfair
 velocity
+wax
 abu
 accountability
 activated
@@ -6914,6 +6915,7 @@ conclude
 conclusions
 confidential
 contacted
+cs
 decreased
 deposits
 dome
@@ -6921,6 +6923,7 @@ embarrassing
 ensuring
 enterprises
 exams
+fog
 framed
 gdp
 gilbert
@@ -7103,6 +7106,7 @@ playoff
 ranger
 rookie
 selective
+sf
 teddy
 terrace
 tribunal
@@ -7295,6 +7299,7 @@ arbitrary
 blogger
 bra
 builder
+cf
 cl
 comp
 compilation
@@ -7797,6 +7802,7 @@ creepy
 depressed
 distribute
 finale
+gt
 horny
 hygiene
 ignorance
@@ -7866,7 +7872,6 @@ luther
 mob
 modest
 ncaa
-nike
 preferences
 profitable
 putin
@@ -7880,7 +7885,6 @@ sentiment
 sucking
 understands
 verdict
-whats
 workshops
 yale
 yemen
@@ -7896,6 +7900,7 @@ dom
 ecological
 exclude
 exempt
+ff
 foam
 forge
 greenhouse
@@ -8384,7 +8389,6 @@ fraser
 frustrating
 grams
 grasp
-hans
 headache
 hydraulic
 imagined
@@ -8519,6 +8523,7 @@ tb
 template
 tendency
 theorem
+tn
 toast
 touchdown
 tourists
@@ -8633,6 +8638,7 @@ youngest
 adviser
 amendments
 anyways
+apt
 argues
 assessments
 avatar
@@ -8669,6 +8675,7 @@ illusion
 inspiring
 insured
 iso
+ix
 johnston
 judy
 leap
@@ -9400,6 +9407,7 @@ detention
 dough
 dug
 eco
+ee
 enclosure
 fade
 fatigue
@@ -9825,6 +9833,7 @@ nap
 niece
 notre
 numbered
+oo
 organizer
 panties
 paragraphs
@@ -9989,12 +9998,3 @@ colorful
 communism
 conductor
 contracting
-convertible
-cracks
-crow
-cu
-cumulative
-dancers
-dat
-decisive
-definitive
