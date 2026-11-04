@@ -118,7 +118,30 @@ public struct Composition {
     /// Fixes a picked candidate; re-decoding will keep it.
     public mutating func pick(_ candidate: Decoder.Candidate) {
         constraints.removeAll { $0.range.overlaps(candidate.range) }
-        constraints.append(Constraint(range: candidate.range, fix: .text(candidate.text, .chinese)))
+        var constraint = Constraint(range: candidate.range, fix: .text(candidate.text, .chinese))
+        constraint.picked = true
+        constraints.append(constraint)
+    }
+
+    /// The local AI's choices. The user's own fixes always win: `corrections` never touches them.
+    public mutating func applyCorrections(_ corrections: [Constraint]) {
+        for c in corrections {
+            constraints.removeAll { $0.range.overlaps(c.range) }
+            constraints.append(c)
+        }
+    }
+
+    public var hasCorrections: Bool { constraints.contains { $0.correctedFrom != nil } }
+
+    /// Cmd-Z: puts back what the AI replaced and locks it, so the AI will not change it again.
+    public mutating func undoCorrections() {
+        constraints = constraints.map { c in
+            guard let original = c.correctedFrom else { return c }
+            var restored = c
+            restored.fix = .text(original, .chinese)
+            restored.correctedFrom = nil
+            return restored
+        }
     }
 
     /// Lone left Shift: flips the language of the segment before the cursor.

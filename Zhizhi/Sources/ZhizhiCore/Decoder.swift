@@ -21,6 +21,12 @@ public struct Constraint: Equatable {
     }
     public var range: Range<Int>
     public var fix: Fix
+    /// Fixed Chinese text: each syllable's end, relative to the range, so the cursor and backspace still work per character.
+    public var syllableEnds: [Int] = []
+    /// Set when the local AI chose this text instead of the user: what it replaced.
+    public var correctedFrom: String?
+    /// Chosen by the user from the candidate list, which is what learning listens to.
+    public var picked = false
     public init(range: Range<Int>, fix: Fix) { self.range = range; self.fix = fix }
 }
 
@@ -283,6 +289,54 @@ public final class Decoder {
 
     // MARK: - Edges
 
+    /// The reading of `word` over a key range, as "ㄋㄧˇ-ㄏㄠˇ". A syllable typed with no tone
+    /// takes the tone stored for the word, or first tone for a word the lexicon does not have.
+    func reading(of word: String, keys: [Character], range: Range<Int>) -> String? {
+        let count = word.count
+        var path: [Span] = []
+        func walk(at position: Int) -> Bool {
+            if path.count == count { return position == range.upperBound }
+            guard position < range.upperBound else { return false }
+            for span in syllableSpans(keys, from: position) where span.end <= range.upperBound {
+                path.append(span)
+                if walk(at: span.end) { return true }
+                path.removeLast()
+            }
+            return false
+        }
+        guard walk(at: range.lowerBound) else { return nil }
+        var node = 0
+        var known: [UInt8]?
+        for span in path {
+            guard let next = lexicon.nodes[node].children[span.base] else { node = -1; break }
+            node = Int(next)
+        }
+        if node >= 0 { known = lexicon.nodes[node].entries.first(where: { $0.word == word })?.tones }
+        let names = Dictionary(uniqueKeysWithValues: lexicon.baseIDs.map { ($1, $0) })
+        var syllables: [String] = []
+        for (i, span) in path.enumerated() {
+            guard let base = names[span.base] else { return nil }
+            let tone = span.tone != Zhuyin.Tone.none ? span.tone : (known?[i] ?? Zhuyin.Tone.first)
+            syllables.append(base + Zhuyin.display(tone: tone))
+        }
+        return syllables.joined(separator: "-")
+    }
+
+    /// Same-sound single characters for one syllable, most likely first. Exact tone when typed;
+    /// only characters that also occur inside words, which drops rare and simplified forms.
+    func alternatives(keys: [Character], range: Range<Int>) -> [Character] {
+        guard let span = syllableSpans(keys, from: range.lowerBound).first(where: { $0.end == range.upperBound }),
+              let node = lexicon.nodes[0].children[span.base] else { return [] }
+        var result: [Character] = []
+        for entry in lexicon.nodes[Int(node)].entries where entry.word.count == 1 {
+            guard span.tone == Zhuyin.Tone.none || entry.tones[0] == span.tone,
+                  let character = entry.word.first, lexicon.charactersInWords.contains(character) else { continue }
+            result.append(character)
+            if result.count == Self.alternativesPerCharacter { break }
+        }
+        return result
+    }
+
     private func syllableSpans(_ keys: [Character], from i: Int) -> [Span] {
         var result: [Span] = []
         var symbols: [Character] = []
@@ -303,7 +357,8 @@ public final class Decoder {
 
     private func edges(from i: Int, keys: [Character], spans: [[Span]], context: Segment.Kind, fixedAt: [Constraint?]) -> [Edge] {
         if let fixed = fixedAt[i], case .text(let text, let kind) = fixed.fix {
-            return fixed.range.lowerBound == i ? [Edge(end: fixed.range.upperBound, kind: kind, text: text, cost: 0)] : []
+            guard fixed.range.lowerBound == i else { return [] }
+            return [Edge(end: fixed.range.upperBound, kind: kind, text: text, cost: 0, syllableEnds: fixed.syllableEnds.map { $0 + i })]
         }
         var out: [Edge] = []
         chineseEdges(from: i, keys: keys, spans: spans, into: &out)

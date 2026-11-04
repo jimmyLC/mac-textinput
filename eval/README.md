@@ -43,3 +43,14 @@ Caveats: only 36 wrong characters, so the rate is +/- 15 points; the baseline is
 | mixed: exactly right (60) | - | 50 |
 | decode per key | - | p95 0.20 ms on the sentence set, 0.18 ms on the replay |
 Replaying the owner's key log (private, not in the repo): none of the old wrong auto-English triggers still turns into English; the one English word left (`learning`) is correct. Remaining sentence errors are mostly context homophones (在/再, 分/份, 理/裡), which is what the local-AI stage targets; the 90% gate is not met yet.
+
+## Zhizhi with the local AI, stage 3 (2026-11-04)
+`zhizhi-eval .. ai <helper> <model folder>` runs the 406 sentences through the real Swift helper, with the engine's output and at most 8 same-sound characters per position. Whole sentence typed, then scored once.
+| threshold | exact | wrong characters fixed | right characters broken |
+|---|---|---|---|
+| none (engine only) | 314 = 77% | - | - |
+| 1.0 | 357 = 87% | 89/115 | 33/3568 |
+| 2.0 | 362 = 89% | 82/115 | 21/3568 |
+| 2.5 (shipped) | 363 = 89% | 79/115 = 69% | 16/3568 = 0.45% |
+| 4.0 | 363 = 89% | 74/115 | 11/3568 |
+Helper per sentence: p50 449 ms, p95 1857 ms, off the key path. Peak memory about 1.3 GB while loaded, freed after 5 idle minutes. Swift and Python log-probabilities agree within about 0.1. Caveats: the threshold was picked on this same set, the sentences are self-written, and real typing commits without always pausing, so real-use accuracy will be lower. The 90% gate is not met.

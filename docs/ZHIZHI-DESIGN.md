@@ -27,7 +27,8 @@ A from-scratch rewrite replacing the McBopomofo-based ZhuyinLM. The goal is typi
 - Qwen2.5-1.5B-4bit in a separate Swift/MLX helper; key handling never waits for it; unloaded when idle. Download is offered at first launch and in settings. Without a model, typing still works.
 
 ## Dictionary and learning
-- Candidates come from statistics, an idle local-AI pass filters them, and they are added directly, tagged "auto". Deleted words are never relearned. Entries may contain spaces, digits, and mixed Chinese/English. Generic import/export.
+- Candidates come from statistics and are added directly, tagged "auto": an unknown English word committed 3 times (never a likely misspelling), or characters picked side by side twice. Picking a known word raises it among its homophones, within a limit, and adds no entry. Counts are salted hashes, so a word below its threshold cannot be read from disk. Deleted words are never relearned. Entries may contain spaces, digits, and mixed Chinese/English. The dictionary is a plain TSV in Application Support, which covers generic import/export.
+- The agreed idle AI filter is not built (changed 2026-11-04): these candidates are words the user explicitly chose or typed repeatedly, and homophone scoring would reject exactly the rare names they want. Revisit if auto entries turn out noisy.
 - Learning may store full sentences (owner decision): 90-day retention then statistics only, encrypted with a Keychain key, excluded from backups, password tools and terminals excluded by default, one-click pause, search and delete. Sentence history stores no app name or URL. Stays off until secure-field bypass is verified on a real device.
 
 ## App

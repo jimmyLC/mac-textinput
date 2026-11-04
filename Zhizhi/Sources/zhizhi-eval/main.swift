@@ -62,6 +62,50 @@ case "sentences":
     print("false English: \(englishPrefixes)/\(prefixes) prefixes while typing; \(englishFinals) finished sentences")
     print(String(format: "decode per key: p50 %.2f ms, p95 %.2f ms, max %.2f ms", percentile(times, 0.5), percentile(times, 0.95), times.max() ?? 0))
     failures.forEach { print("  " + $0) }
+case "ai":
+    // zhizhi-eval <root> ai <helper executable> <model folder>: the sentence set through the real helper.
+    struct Row: Decodable { let gold: String; let syllables: [String] }
+    let rows = try! JSONDecoder().decode([Row].self, from: Data(contentsOf: URL(fileURLWithPath: root + "/eval/baseline.json")))
+    let client = HelperClient(executable: URL(fileURLWithPath: args[3]), model: URL(fileURLWithPath: args[4]))
+    func scored(_ texts: [String]) -> [Float] {
+        let done = DispatchSemaphore(value: 0)
+        var result: [Float] = []
+        client.score(texts) { result = $0 ?? []; done.signal() }
+        done.wait()
+        return result
+    }
+    var runs: [(row: Row, keys: [Character], segments: [Segment], plan: CorrectionPlan?, scores: [Float])] = []
+    var times: [Double] = []
+    for row in rows {
+        let keys = Array(row.syllables.map(Zhuyin.keys(forSyllable:)).joined())
+        let segments = decoder.decode(keys: keys)
+        let plan = decoder.correctionPlan(keys: keys, segments: segments)
+        let t = Date()
+        runs.append((row, keys, segments, plan, plan.map { scored($0.texts) } ?? []))
+        times.append(Date().timeIntervalSince(t) * 1000)
+    }
+    print(String(format: "helper per sentence: p50 %.0f ms, p95 %.0f ms", percentile(times, 0.5), percentile(times, 0.95)))
+    for threshold: Float in [1, 1.5, 2, 2.5, 3, 4] {
+        var exact = 0, wrongBefore = 0, fixed = 0, broken = 0, rightBefore = 0
+        var failures: [String] = []
+        for run in runs {
+            let before = normalized(decoder.render(run.segments))
+            var after = before
+            if let plan = run.plan {
+                let constraints = decoder.corrections(plan: plan, logprobs: run.scores, threshold: threshold)
+                after = normalized(decoder.render(decoder.decode(keys: run.keys, constraints: constraints)))
+            }
+            let gold = normalized(run.row.gold)
+            if after == gold { exact += 1 } else { failures.append("\(run.row.gold) -> \(after)") }
+            guard before.count == gold.count, after.count == gold.count else { continue }
+            for (b, (a, g)) in zip(before, zip(after, gold)) {
+                if b == g { rightBefore += 1; if a != g { broken += 1 } }
+                else { wrongBefore += 1; if a == g { fixed += 1 } }
+            }
+        }
+        print("tau \(threshold): exact \(exact)/\(runs.count) (\(exact * 100 / max(runs.count, 1))%); fixed \(fixed)/\(wrongBefore); broken \(broken)/\(rightBefore)")
+        if threshold == 2 { failures.forEach { print("  " + $0) } }
+    }
 case "mixed":
     struct Row: Decodable { let gold: String; let keys: String }
     let rows = try! JSONDecoder().decode([Row].self, from: Data(contentsOf: URL(fileURLWithPath: root + "/eval/mixed.json")))

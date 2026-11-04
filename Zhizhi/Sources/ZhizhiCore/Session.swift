@@ -8,6 +8,7 @@ public final class Session {
         case fixedDigit(Character)     // Option + digit or numpad: always a digit
         case enter, backspace, left, right, up, down, tab, escape, pageUp, pageDown
         case shiftTap                  // left Shift pressed and released alone
+        case undoCorrection            // Cmd-Z while the AI has changed something uncommitted
         case shortcut                  // Command or Control combination
         case other
     }
@@ -26,6 +27,7 @@ public final class Session {
         public var caret = 0           // UTF-16 offset in `composing`
         public var candidates: Candidates?
         public var offer: String?      // Tab offer text
+        public var corrected: [Int] = []   // character offsets in `composing` the AI just changed
     }
 
     public static let pageSize = 9
@@ -41,10 +43,51 @@ public final class Session {
     private var listOpen = false
     private var listIndex = 0
     private var previousCharacter: Character?
+    /// Rises with every key, so an answer from the local AI can tell it is too late.
+    public private(set) var generation = 0
+    private var scoredTexts: [String] = []
+
+    /// Set only while learning is allowed for the current app.
+    public var learner: Learner?
+    /// Every committed text, for the sentence history; nil while that is off.
+    public var onCommit: ((String) -> Void)?
 
     public init(decoder: Decoder) { self.decoder = decoder }
 
     public var isComposing: Bool { !composition.isEmpty }
+    public var hasCorrections: Bool { composition.hasCorrections }
+
+    /// What the local AI should score now; nil when it has seen exactly this already.
+    public func correctionRequest() -> (plan: CorrectionPlan, generation: Int)? {
+        guard isComposing, !listOpen,
+              let plan = decoder.correctionPlan(keys: composition.keys, segments: composition.segments(decoder)),
+              plan.texts != scoredTexts else { return nil }
+        scoredTexts = plan.texts
+        return (plan, generation)
+    }
+
+    /// Applies an answer, unless the user has typed since. Nil means nothing changed.
+    public func applyCorrections(plan: CorrectionPlan, generation: Int, logprobs: [Float], threshold: Float) -> Output? {
+        guard generation == self.generation else {
+            scoredTexts = []    // this answer is lost: the next pause may ask again, even for the same text
+            return nil
+        }
+        let found = decoder.corrections(plan: plan, logprobs: logprobs, threshold: threshold)
+        guard !found.isEmpty else { return nil }
+        let before = Array(composition.rendered(decoder).text)
+        composition.applyCorrections(found)
+        var output = Output()
+        output = finish(&output)
+        let after = Array(output.composing)
+        output.corrected = after.indices.filter { $0 < before.count && before[$0] != after[$0] }
+        return output
+    }
+
+    /// The screen as it stands now, without touching anything.
+    public func currentOutput() -> Output {
+        var output = Output()
+        return finish(&output)
+    }
 
     /// The character before the caret in the app, when it can tell; used at the start of a buffer.
     public func setPreviousCharacter(_ character: Character?) {
@@ -70,7 +113,9 @@ public final class Session {
 
     private func commitText() -> String {
         let leading = composition.leading
+        learn()
         var text = composition.commit(decoder)
+        onCommit?(text)
         if decoder.autoSpace, leading != .other, let first = text.first, first != " " {
             let language = Self.language(of: first)
             if language != .other, language != leading { text = " " + text }
@@ -80,7 +125,32 @@ public final class Session {
         return text
     }
 
+    /// Tells the learner what this commit showed: chosen words, new phrases, unknown English.
+    private func learn() {
+        guard let learner else { return }
+        let keys = composition.keys
+        var run: [Constraint] = []
+        func closeRun() {
+            defer { run.removeAll() }
+            guard run.count >= 2, let first = run.first, let last = run.last else { return }
+            let text = run.compactMap { c -> String? in if case .text(let t, _) = c.fix { return t } else { return nil } }.joined()
+            let range = first.range.lowerBound..<last.range.upperBound
+            if let reading = decoder.reading(of: text, keys: keys, range: range) { learner.pickedPhrase(text: text, reading: reading) }
+        }
+        for c in composition.constraints.filter({ $0.picked }).sorted(by: { $0.range.lowerBound < $1.range.lowerBound }) {
+            guard case .text(let text, _) = c.fix else { continue }
+            if let reading = decoder.reading(of: text, keys: keys, range: c.range) { learner.picked(word: text, reading: reading) }
+            if let last = run.last, last.range.upperBound != c.range.lowerBound { closeRun() }
+            run.append(c)
+        }
+        closeRun()
+        for segment in composition.segments(decoder) where segment.kind == .english {
+            learner.committed(english: segment.text)
+        }
+    }
+
     public func handle(_ key: Key) -> Output {
+        generation += 1
         var output = Output()
         if listOpen, handleList(key, &output) { return finish(&output) }
 
@@ -93,6 +163,7 @@ public final class Session {
                 output.commit = commitText()
             } else if let front = composition.commitOverflow(decoder) {
                 output.commit = front
+                onCommit?(front)
             }
         case .fixedDigit(let ch):
             composition.insertFixed(ch, text: String(ch))
@@ -115,6 +186,8 @@ public final class Session {
             output.handled = isComposing       // Esc never drops the text
         case .shiftTap:
             if composition.isEmpty { output.handled = false } else { composition.flipBeforeCursor(decoder) }
+        case .undoCorrection:
+            composition.undoCorrections()
         case .shortcut, .other:
             if isComposing { output.commit = commitText() }
             output.handled = false

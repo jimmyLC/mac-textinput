@@ -1,4 +1,5 @@
 import AppKit
+import Carbon
 import InputMethodKit
 import ZhizhiCore
 
@@ -12,6 +13,8 @@ final class ZhizhiInputController: IMKInputController {
 
     private lazy var session = Session(decoder: Engine.shared.decoder)
     private var tipUntil: Date?
+    private var pause: DispatchWorkItem?     // the wait before the local AI looks at the text
+    private var scoring = false
 
     override func recognizedEvents(_ sender: Any!) -> Int {
         Int(NSEvent.EventTypeMask([.keyDown, .flagsChanged, .leftMouseDown]).rawValue)
@@ -30,6 +33,8 @@ final class ZhizhiInputController: IMKInputController {
     }
 
     private func finishComposition(_ client: Any!) {
+        pause?.cancel()
+        prepareLearning(client: client)
         Self.candidates.hide()
         Self.tip.hide()
         if let text = session.flush() { insert(text, client: client) }
@@ -54,12 +59,56 @@ final class ZhizhiInputController: IMKInputController {
             return false
         }
 
+        prepareLearning(client: sender)
         let key = translate(event)
         if !session.isComposing { session.setPreviousCharacter(characterBeforeCaret(client: sender)) }
         let output = session.handle(key)
         DebugLog.shared.record("key=\(Self.describe(key)) -> handled=\(output.handled) composing=\(session.isComposing) kinds=\(kinds()) commit=\(output.commit != nil)")
         apply(output, client: sender)
+        scheduleCorrection(client: sender)
         return output.handled
+    }
+
+    // MARK: - Learning and local AI
+
+    /// Learning listens only outside secure input, password tools and terminals, and never while paused.
+    private func prepareLearning(client: Any!) {
+        let bundleID = (client as? IMKTextInput)?.bundleIdentifier()
+        let allowed = !Preferences.learningPaused && !IsSecureEventInputEnabled() && !LearningExclusions.excludes(bundleID: bundleID)
+        session.learner = allowed ? Engine.shared.learner : nil
+        session.onCommit = allowed && Preferences.sentenceHistory ? { Engine.shared.keep(sentence: $0) } : nil
+    }
+
+    private func scheduleCorrection(client: Any!) {
+        pause?.cancel()
+        guard Preferences.aiCorrections, session.isComposing, Engine.shared.ai.isAvailable, !IsSecureEventInputEnabled() else { return }
+        let work = DispatchWorkItem { [weak self] in self?.runCorrection(client: client) }
+        pause = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: work)
+    }
+
+    /// Runs entirely off the key path: an answer that arrives after another key is thrown away.
+    private func runCorrection(client: Any!) {
+        guard !scoring, let request = session.correctionRequest() else { return }
+        scoring = true
+        Engine.shared.ai.score(request.plan.texts) { [weak self] scores in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.scoring = false
+                if let scores, let output = self.session.applyCorrections(
+                    plan: request.plan, generation: request.generation, logprobs: scores, threshold: Engine.correctionThreshold) {
+                    DebugLog.shared.record("ai corrected=\(output.corrected.count)")
+                    self.apply(output, client: client)
+                    let generation = request.generation
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+                        guard let self, self.session.generation == generation, self.session.isComposing else { return }
+                        self.apply(self.session.currentOutput(), client: client)
+                    }
+                }
+                // The user may have typed on while this ran: look again after the next pause.
+                self.scheduleCorrection(client: client)
+            }
+        }
     }
 
     private func kinds() -> String {
@@ -111,6 +160,8 @@ final class ZhizhiInputController: IMKInputController {
 
     private func translate(_ event: NSEvent) -> Session.Key {
         let flags = event.modifierFlags
+        if event.keyCode == 6, session.hasCorrections,
+           flags.intersection([.command, .control, .option, .shift]) == .command { return .undoCorrection }
         if flags.contains(.command) || flags.contains(.control) { return .shortcut }
         switch event.keyCode {
         case 36, 76: return .enter
@@ -142,8 +193,16 @@ final class ZhizhiInputController: IMKInputController {
             clearMarked(client)
         } else {
             let attributes: [NSAttributedString.Key: Any] = [.underlineStyle: NSUnderlineStyle.single.rawValue, .markedClauseSegment: 0]
+            let marked = NSMutableAttributedString(string: output.composing, attributes: attributes)
+            // Characters the AI just changed stand out for a moment.
+            let characters = Array(output.composing)
+            for offset in output.corrected where offset < characters.count {
+                let location = (String(characters[..<offset]) as NSString).length
+                let range = NSRange(location: location, length: (String(characters[offset]) as NSString).length)
+                marked.addAttribute(.underlineStyle, value: NSUnderlineStyle.thick.rawValue, range: range)
+            }
             (client as? IMKTextInput)?.setMarkedText(
-                NSAttributedString(string: output.composing, attributes: attributes),
+                marked,
                 selectionRange: NSRange(location: output.caret, length: 0),
                 replacementRange: NSRange(location: NSNotFound, length: 0))
         }
@@ -189,6 +248,18 @@ final class ZhizhiInputController: IMKInputController {
 
     override func menu() -> NSMenu! {
         let menu = NSMenu(title: "知之")
+        func toggle(_ title: String, _ action: Selector, on: Bool, enabled: Bool = true) {
+            let item = menu.addItem(withTitle: title, action: enabled ? action : nil, keyEquivalent: "")
+            item.target = self
+            item.state = on ? .on : .off
+        }
+        let hasModel = Engine.shared.ai.isAvailable
+        toggle(hasModel ? "AI 自動修正同音字" : "AI 自動修正同音字（尚未安裝模型）", #selector(toggleAI(_:)), on: hasModel && Preferences.aiCorrections, enabled: hasModel)
+        toggle("暫停學習", #selector(toggleLearning(_:)), on: Preferences.learningPaused)
+        toggle("保留句子歷史（90 天，加密）", #selector(toggleHistory(_:)), on: Preferences.sentenceHistory)
+        let clearHistory = menu.addItem(withTitle: "清除句子歷史", action: #selector(clearSentenceHistory(_:)), keyEquivalent: "")
+        clearHistory.target = self
+        menu.addItem(.separator())
         let log = menu.addItem(withTitle: "記錄打字判斷（除錯用，24 小時後關閉）", action: #selector(toggleDebugLog(_:)), keyEquivalent: "")
         log.target = self
         log.state = DebugLog.shared.enabled ? .on : .off
@@ -200,6 +271,13 @@ final class ZhizhiInputController: IMKInputController {
         return menu
     }
 
+    @objc private func toggleAI(_ sender: Any?) {
+        Preferences.aiCorrections.toggle()
+        if !Preferences.aiCorrections { Engine.shared.ai.stop() }
+    }
+    @objc private func toggleLearning(_ sender: Any?) { Preferences.learningPaused.toggle() }
+    @objc private func toggleHistory(_ sender: Any?) { Preferences.sentenceHistory.toggle() }
+    @objc private func clearSentenceHistory(_ sender: Any?) { Engine.shared.clearHistory() }
     @objc private func toggleDebugLog(_ sender: Any?) { DebugLog.shared.enabled.toggle() }
     @objc private func clearDebugLog(_ sender: Any?) { DebugLog.shared.clear() }
 }

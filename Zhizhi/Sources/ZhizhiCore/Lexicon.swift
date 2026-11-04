@@ -19,6 +19,8 @@ public final class Lexicon {
     private(set) var userEnglish: [String: String] = [:]  // lowercase -> stored spelling
     private(set) var bestCompletion: [String: String] = [:]   // English prefix -> most frequent longer word
     private(set) var userEntries: [UserEntry] = []
+    private(set) var charactersInWords: Set<Character> = []
+    private var originalScores: [String: Float] = [:]     // word + reading, before any boost
 
     /// A personal-dictionary entry offered by Tab: starts with English letters or Chinese syllables.
     struct UserEntry {
@@ -34,6 +36,7 @@ public final class Lexicon {
         for line in tsv.split(separator: "\n") {
             let f = line.split(separator: "\t")
             guard f.count >= 3, let score = Float(f[1]) else { continue }
+            if f[0].count > 1 { charactersInWords.formUnion(f[0]) }
             for reading in f[2].split(separator: "|") {
                 insert(word: String(f[0]), score: score, syllables: reading.split(separator: "-"))
             }
@@ -116,6 +119,33 @@ public final class Lexicon {
             node = Int(next)
         }
         nodes[node].entries.sort { $0.score > $1.score }
+    }
+
+    public func hasEntry(word: String, reading: String) -> Bool {
+        guard let node = node(for: reading) else { return false }
+        return nodes[node].entries.contains { $0.word == word }
+    }
+
+    /// Raises a word above its original score by `amount`. Repeating replaces, it does not add up.
+    /// Keeps the entry's tones: only the word's rank among its homophones changes.
+    public func setBoost(word: String, reading: String, amount: Float) {
+        guard let node = node(for: reading),
+              let index = nodes[node].entries.firstIndex(where: { $0.word == word }) else { return }
+        let key = word + "\t" + reading
+        let original = originalScores[key] ?? nodes[node].entries[index].score
+        originalScores[key] = original
+        let entry = nodes[node].entries[index]
+        nodes[node].entries[index] = Entry(word: word, score: original + amount, tones: entry.tones)
+        nodes[node].entries.sort { $0.score > $1.score }
+    }
+
+    private func node(for reading: String) -> Int? {
+        var node = 0
+        for s in reading.split(separator: "-") {
+            guard let id = baseIDs[Zhuyin.split(s).base], let next = nodes[node].children[id] else { return nil }
+            node = Int(next)
+        }
+        return node
     }
 
     private func insert(word: String, score: Float, syllables: [Substring]) {
