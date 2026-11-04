@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T15:01:32+00:00",
+  "generatedAt": "2026-11-04T09:41:08+00:00",
   "generator": "tools/build_english_dict.py",
   "model": "zhuyinlm-ime/english-dict v2",
   "sources": {
@@ -31,24 +31,27 @@
     }
   },
   "counts": {
-    "predictionTable": 113092,
+    "predictionTable": 51074,
     "core": 10000,
     "dictionary": 373359,
     "techTerms": 257,
     "tiers": {
-      "core": 10534,
-      "common": 102437,
-      "tech": 121
+      "core": 10399,
+      "common": 40572,
+      "tech": 103
     },
-    "droppedUnverified": 91372
+    "droppedUnverified": 191814,
+    "droppedLikelyTypos": 30788
   },
   "weights": {
     "google": 0.25,
     "hunspell": 0.1,
     "techFloor": 2.2,
     "unverifiedMin": 3.5,
+    "typoDelta": 2.5,
+    "typoDeltaShort": 2.9,
     "min": 1.0,
     "max": 9.0,
-    "wordfreqTop": 200000
+    "wordfreqTop": 300000
   }
 }

@@ -6801,7 +6801,6 @@ trophy
 tweet
 unfair
 velocity
-wax
 abu
 accountability
 activated
@@ -6915,7 +6914,6 @@ conclude
 conclusions
 confidential
 contacted
-cs
 decreased
 deposits
 dome
@@ -6923,7 +6921,6 @@ embarrassing
 ensuring
 enterprises
 exams
-fog
 framed
 gdp
 gilbert
@@ -7106,7 +7103,6 @@ playoff
 ranger
 rookie
 selective
-sf
 teddy
 terrace
 tribunal
@@ -7299,7 +7295,6 @@ arbitrary
 blogger
 bra
 builder
-cf
 cl
 comp
 compilation
@@ -7775,7 +7770,6 @@ garcia
 highlighted
 hopkins
 indonesian
-irs
 lanka
 launches
 memphis
@@ -7790,7 +7784,6 @@ profiles
 salaries
 sd
 showers
-td
 touring
 utilities
 yields
@@ -7804,7 +7797,6 @@ creepy
 depressed
 distribute
 finale
-gt
 horny
 hygiene
 ignorance
@@ -7904,7 +7896,6 @@ dom
 ecological
 exclude
 exempt
-ff
 foam
 forge
 greenhouse
@@ -8270,7 +8261,6 @@ asthma
 aurora
 bacterial
 blink
-bp
 bros
 bump
 ce
@@ -8529,7 +8519,6 @@ tb
 template
 tendency
 theorem
-tn
 toast
 touchdown
 tourists
@@ -8591,7 +8580,6 @@ hannah
 highland
 hike
 idle
-ie
 introduces
 judging
 kissed
@@ -8645,7 +8633,6 @@ youngest
 adviser
 amendments
 anyways
-apt
 argues
 assessments
 avatar
@@ -8682,7 +8669,6 @@ illusion
 inspiring
 insured
 iso
-ix
 johnston
 judy
 leap
@@ -8929,7 +8915,6 @@ dev
 disappointment
 dispatch
 distributor
-ds
 eds
 eng
 enjoyable
@@ -9056,7 +9041,6 @@ monument
 nat
 norton
 noting
-nt
 numerical
 obsession
 organs
@@ -9227,17 +9211,14 @@ funky
 harbour
 hash
 haul
-hq
 immense
 innovations
 intact
 interfere
-jin
 ki
 ko
 lamps
 leverage
-ln
 lyric
 madonna
 manila
@@ -9245,7 +9226,6 @@ mankind
 maximize
 medals
 militia
-mn
 myers
 olds
 opener
@@ -9350,7 +9330,6 @@ molly
 ninja
 nottingham
 nw
-og
 optimistic
 owl
 paperback
@@ -9421,7 +9400,6 @@ detention
 dough
 dug
 eco
-ee
 enclosure
 fade
 fatigue
@@ -9452,7 +9430,6 @@ klein
 legion
 lethal
 lively
-ls
 maid
 manning
 mickey
@@ -9460,7 +9437,6 @@ mindset
 morality
 mortal
 motel
-nd
 offence
 openings
 operative
@@ -9482,7 +9458,6 @@ relaxation
 renowned
 rig
 risen
-rn
 rotary
 scripts
 serbia
@@ -9646,7 +9621,6 @@ goose
 guessing
 heroic
 highs
-hs
 hunters
 hut
 instructed
@@ -9707,7 +9681,6 @@ agreeing
 api
 applause
 ashes
-az
 boil
 breakthrough
 breeds
@@ -9852,7 +9825,6 @@ nap
 niece
 notre
 numbered
-oo
 organizer
 panties
 paragraphs
@@ -9888,7 +9860,6 @@ springer
 stimulus
 tornado
 traveler
-ts
 tuning
 twilight
 undo
@@ -9998,3 +9969,32 @@ wr
 accountable
 admitting
 aligned
+altar
+amend
+angles
+armies
+awe
+banning
+beers
+bells
+blamed
+blond
+blvd
+bosses
+cavalry
+cheated
+cloudy
+coffin
+colorful
+communism
+conductor
+contracting
+convertible
+cracks
+crow
+cu
+cumulative
+dancers
+dat
+decisive
+definitive

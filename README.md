@@ -29,7 +29,7 @@ git submodule update --init --recursive
 
 | 檔案 | 內容 |
 |---|---|
-| `data/english-words.txt` | 自建英文預測詞頻表,113,092 行 TSV(`word<TAB>count`),count 為單調遞增權重。 |
+| `data/english-words.txt` | 自建英文預測詞頻表,51,074 行 TSV(`word<TAB>count`),count 為單調遞增權重。 |
 | `data/english-common-10000.txt` | 高信心核心 10,000 詞(頻率排序)。 |
 | `data/english-tech-terms.txt` | 技術 / 品牌 / 縮寫詞 257 筆,供 `includeEngineering` 開關使用。 |
 | `data/english-dictionary.txt` | 全量合法英文詞 373,359 筆(驗收用,無權重)。 |
@@ -73,12 +73,24 @@ z  = wordfreq.zipf_frequency(word, 'en')     # 0..8 的對數詞頻
 z += 0.25  若命中 google-10000               # 人工挑選的常用詞
 z += 0.10  若命中 hunspell 小寫詞幹          # 標準英文字典收錄
 z  = max(z, 2.20)  若為自建技術詞            # 技術詞可被預測,但不擠掉常用詞
-未通過任何字典驗證者(多為人名/地名):z < 3.5 一律不進預測表
+「已驗證」= 標準字典(hunspell)/ google-10k / 技術詞;dwyl 不算已驗證
+未通過驗證者(多為人名/地名):z < 3.5 一律不進預測表
+疑似誤字(與常用詞只差一次編輯、常用度差 ≥ 10^2.5):剔除
 count = round(10 ^ z)
 ```
 
-分層(僅計入實際進表者):core 10,534 / common 102,437 / tech 121;
-另略過 91,372 個「未經字典驗證且不常見」的詞(人名地名長尾)。
+**三條資料層規則,都是為了配合輸入法的實際行為**:
+
+1. **dwyl 不進預測表**(只留 `english-dictionary.txt` 當驗收字典):dwyl 是「所有英文字串」
+   的集合,含大量非標準拼寫與冷僻 token。
+2. **疑似誤字剔除**:與常用詞只差一次編輯、且該常用詞常用度高 10^2.5 倍以上的 token
+   不進預測表(3 字母 token 用更嚴的門檻 2.9,避免誤殺 "hel" 這類真詞)。
+   → 使用者打 `enviroment` / `untill` / `wich` 時,拼字修正才會提示正確寫法。
+3. **常用詞的 2–3 字母前綴保留**:例如 `hel` 是 `hello` 的前綴,輸入進行中就該顯示英文。
+   → 這條同時擋掉 `rul`(`rule` 的誤字)把中文組字誤判成英文。
+
+分層(僅計入實際進表者):core 10,399 / common 40,572 / tech 103;
+另略過 191,814 個「未經字典驗證且不常見」的詞與 30,788 個疑似誤字。
 遠端來源只存於本機 `data/.cache/`(不入版控),本 repo 僅散布**衍生**統計檔。
 
 已知限制:僅純字母(縮寫如 `mp3`、`k8s` 只在 `english-tech-terms.txt`)、不含撇號與連字號、
