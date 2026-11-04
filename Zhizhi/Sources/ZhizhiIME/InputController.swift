@@ -8,17 +8,17 @@ final class ZhizhiInputController: IMKInputController {
     private static let candidates = CandidatePanel()
     private static let tip = TipPanel()
 
+    private static var mode = TypingMode()   // shared, so English mode follows the user across apps
+
     private lazy var session = Session(decoder: Engine.shared.decoder)
-    private var englishMode = false      // Caps Lock on: keys go straight to the app
-    private var shiftDownAt: Date?       // left Shift held with nothing else pressed
     private var tipUntil: Date?
 
     override func recognizedEvents(_ sender: Any!) -> Int {
-        Int(NSEvent.EventTypeMask([.keyDown, .flagsChanged]).rawValue)
+        Int(NSEvent.EventTypeMask([.keyDown, .flagsChanged, .leftMouseDown]).rawValue)
     }
 
     override func activateServer(_ sender: Any!) {
-        englishMode = NSEvent.modifierFlags.contains(.capsLock)
+        _ = Self.mode.syncCaps(NSEvent.modifierFlags.contains(.capsLock))
     }
 
     override func deactivateServer(_ sender: Any!) {
@@ -39,12 +39,20 @@ final class ZhizhiInputController: IMKInputController {
     override func handle(_ event: NSEvent!, client sender: Any!) -> Bool {
         guard let event else { return false }
         if event.type == .flagsChanged { return handleFlags(event, client: sender) }
+        Self.mode.otherInput()   // a Shift-click or Shift+key is not a lone Shift tap
         guard event.type == .keyDown else { return false }
-        shiftDownAt = nil
 
-        let caps = event.modifierFlags.contains(.capsLock)
-        if caps != englishMode { setEnglishMode(caps, client: sender) }
-        if englishMode { return false }
+        syncCaps(event, client: sender)
+        if Self.mode.passesThrough {
+            let flags = event.modifierFlags
+            if flags.isDisjoint(with: [.command, .control, .option]),
+               let letter = event.charactersIgnoringModifiers?.first,
+               let text = Self.mode.lowercaseOverride(letter: letter, shift: flags.contains(.shift)) {
+                insert(text, client: sender)
+                return true
+            }
+            return false
+        }
 
         let key = translate(event)
         if !session.isComposing { session.setPreviousCharacter(characterBeforeCaret(client: sender)) }
@@ -67,28 +75,34 @@ final class ZhizhiInputController: IMKInputController {
     }
 
     private func handleFlags(_ event: NSEvent, client: Any!) -> Bool {
-        let caps = event.modifierFlags.contains(.capsLock)
-        if caps != englishMode { setEnglishMode(caps, client: client) }
-        guard event.keyCode == 56 else { shiftDownAt = nil; return false }   // left Shift only
-        if event.modifierFlags.contains(.shift) {
-            shiftDownAt = Date()
-            return false
+        syncCaps(event, client: client)
+        switch Self.mode.flagsChanged(keyCode: event.keyCode, shift: event.modifierFlags.contains(.shift), composing: session.isComposing) {
+        case .flipSegment:
+            let output = session.handle(.shiftTap)
+            DebugLog.shared.record("key=shiftTap -> kinds=\(kinds())")
+            apply(output, client: client)
+        case .englishChanged(let on):
+            DebugLog.shared.record("mode=\(on ? "english" : "chinese")")
+            showModeTip(on ? "English" : "中文", client: client)
+        default:
+            break
         }
-        defer { shiftDownAt = nil }
-        guard let down = shiftDownAt, Date().timeIntervalSince(down) < 1.0, session.isComposing else { return false }
-        let output = session.handle(.shiftTap)
-        DebugLog.shared.record("key=shiftTap -> kinds=\(kinds())")
-        apply(output, client: client)
         return false
     }
 
-    private func setEnglishMode(_ on: Bool, client: Any!) {
-        englishMode = on
-        if on, let text = session.flush() { insert(text, client: client) }
-        if on { clearMarked(client) }
+    private func syncCaps(_ event: NSEvent, client: Any!) {
+        guard case .capsChanged(let on)? = Self.mode.syncCaps(event.modifierFlags.contains(.capsLock)) else { return }
+        DebugLog.shared.record("caps=\(on)")
+        showModeTip(on ? "大寫" : "大寫關閉", client: client)
+    }
+
+    private func showModeTip(_ text: String, client: Any!) {
+        if Self.mode.passesThrough {
+            if let pending = session.flush() { insert(pending, client: client) }
+            clearMarked(client)
+        }
         Self.candidates.hide()
-        DebugLog.shared.record("mode=\(on ? "english" : "chinese")")
-        Self.tip.show(on ? "English" : "中文", under: lineRect(client: client))
+        Self.tip.show(text, under: lineRect(client: client))
         tipUntil = Date().addingTimeInterval(0.8)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.85) { [weak self] in
             if let until = self?.tipUntil, Date() >= until { Self.tip.hide() }

@@ -12,7 +12,7 @@ A from-scratch rewrite replacing the McBopomofo-based ZhuyinLM. The goal is typi
 - Commit on Enter or sentence-ending punctuation, on focus change, and the front part when the buffer exceeds about 40 characters.
 - Space: tone 1 while a syllable is unfinished; a literal space after English (stays in the buffer); a plain space when the buffer is empty. Space never opens candidates.
 - Default judgement: Chinese first (a tone key always means Chinese; otherwise English needs 3+ letters, a common word, and no sensible Zhuyin reading). Settings can switch to habit-based or English first. Lone left Shift flips the segment before the cursor.
-- Manual English mode is configurable, default Caps Lock.
+- Caps Lock means capitals and passes keys to the app; Shift under Caps Lock types lowercase. Shift+letter while composing is a capital and reads as English. A lone left Shift with nothing composing toggles manual English mode (changed 2026-11-04 after real typing: Caps Lock as the switch left Shift unusable, because macOS stays uppercase under Caps Lock + Shift). The switching key stays configurable.
 - Zhuyin components in any order; tones may be omitted only when the syllables form a common word (a lone syllable still needs its tone). Standard layout only. One wrong tone is tolerated by the engine.
 - Numbers: a digit run that is not sensible Zhuyin is a number; Option+digit and the numpad are always digits. Tokens with `://`, `@`, or letters joined by `.-_/` are English as a whole. Punctuation width follows the preceding text (configurable).
 - Auto space between Chinese and English in both directions (can be turned off). Problem apps use a floating composition window; the list comes from testing.

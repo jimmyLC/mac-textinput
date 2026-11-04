@@ -39,6 +39,25 @@ final class SessionTests: XCTestCase {
     func testEnglishThenSpaceThenChinese() {
         XCTAssertEqual(type("hello su3cl3").composing, "hello 你好")
     }
+    func testShiftCapitalsReadAsEnglish() {
+        XCTAssertEqual(type("Hello").composing, "Hello")
+        press(.enter)
+        XCTAssertEqual(type("A").composing, "A")
+        press(.enter)
+        XCTAssertEqual(type("OK").composing, "OK")
+        press(.enter)
+        XCTAssertEqual(type("iPhone").composing, "iPhone")
+        press(.enter)
+        XCTAssertEqual(type("BUY").composing, "BUY")
+        press(.enter)
+        session = Session(decoder: session.decoder)
+        XCTAssertEqual(type("su3cl3Hello").composing, "你好 Hello")
+    }
+    func testUnderscoreStaysAnUnderscoreAfterChinese() {
+        XCTAssertEqual(type("su3cl3_").composing, "你好_")
+        press(.enter)
+        XCTAssertEqual(type("_").composing, "_")
+    }
     func testSentencePunctuationCommits() {
         type("su3cl3>")
         XCTAssertEqual(committed, "你好。")
