@@ -30,6 +30,7 @@ case "sentences":
     let path = args.count > 3 ? args[3] : root + "/eval/baseline.json"
     let rows = try! JSONDecoder().decode([Row].self, from: Data(contentsOf: URL(fileURLWithPath: path)))
     var exact = 0, wrongChars = 0, totalChars = 0, toneless = 0
+    var prefixes = 0, englishPrefixes = 0, englishFinals = 0
     var failures: [String] = []
     var times: [Double] = []
     for row in rows {
@@ -42,7 +43,11 @@ case "sentences":
             let segments = decoder.decode(keys: prefix)
             times.append(Date().timeIntervalSince(t) * 1000)
             output = decoder.render(segments)
+            // Chinese-only sentences: any Latin letter while typing is a false English reading.
+            prefixes += 1
+            if segments.contains(where: { $0.kind == .english }) { englishPrefixes += 1 }
         }
+        if output.contains(where: { $0.isASCII && $0.isLetter }) { englishFinals += 1 }
         let gold = normalized(row.gold), got = normalized(output)
         totalChars += gold.count
         if gold == got { exact += 1 } else {
@@ -54,6 +59,7 @@ case "sentences":
         if normalized(decoder.render(decoder.decode(bare))) == gold { toneless += 1 }
     }
     print("sentences \(rows.count); exact \(exact) (\(exact * 100 / max(rows.count, 1))%); char errors \(wrongChars)/\(totalChars); toneless exact \(toneless)")
+    print("false English: \(englishPrefixes)/\(prefixes) prefixes while typing; \(englishFinals) finished sentences")
     print(String(format: "decode per key: p50 %.2f ms, p95 %.2f ms, max %.2f ms", percentile(times, 0.5), percentile(times, 0.95), times.max() ?? 0))
     failures.forEach { print("  " + $0) }
 case "mixed":
