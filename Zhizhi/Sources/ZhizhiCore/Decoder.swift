@@ -59,6 +59,7 @@ public final class Decoder {
         public var space: Float = 0.5
         public var pairWeight: Float = 0.15           // how much a word pair counts against the word alone (0 = off)
         public var pairLimit: Float = 2.0             // the most a pair may lower a word's cost: it settles close calls only
+        public var complementDe: Float = 2.5          // 跑得 then 很快: the complement reading of 得
         public var beam: Float = 18.0                 // readings this much worse than the best so far are dropped
         public var wordsPerSpan = 5                   // same-sound words kept per stretch of keys, for pairs to choose among
         public var listMarker: Float = 2.0            // "2." at the start of a line or after a space, as in a numbered list
@@ -168,6 +169,8 @@ public final class Decoder {
                         if let pair = lexicon.pairScore(state.word, edge.word) { gain = pairGain(pair: pair, alone: edge.score) }
                         // What the user chose in this very spot counts for more than what the corpus saw.
                         if let own = lexicon.ownPairGain(state.word, edge.word) { gain = max(gain, own) }
+                        // 跑得 + 很快: a verb with 得 followed by a degree word is the complement 得, not 的.
+                        if lexicon.verbDe.contains(state.word), lexicon.degree.contains(edge.word) { gain = max(gain, costs.complementDe) }
                         cost -= gain
                     }
                     let language = edge.kind == .pending ? Segment.Kind.chinese : edge.kind
@@ -462,7 +465,7 @@ public final class Decoder {
         var chosen: [Int: [(cost: Float, word: String, ends: [Int], score: Float, id: UInt32)]] = [:]   // words the user has paired
         var typed: [UInt8] = []
         var ends: [Int] = []
-        let keep = lexicon.hasPairs ? max(1, costs.wordsPerSpan) : 1
+        let keep = max(1, costs.wordsPerSpan)   // pairs and the 得 rule choose among them
 
         func walk(node: Int, at pos: Int) {
             guard pos < keys.count, typed.count < 8 else { return }

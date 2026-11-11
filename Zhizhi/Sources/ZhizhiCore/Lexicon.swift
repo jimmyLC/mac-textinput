@@ -27,6 +27,11 @@ public final class Lexicon {
     private var ownPairs: [UInt64: Float] = [:]           // the user's own pairs: how much cheaper the second word gets
     private(set) var ownPairWords: Set<UInt32> = []       // second words of those pairs: always kept as candidates
     var hasPairs: Bool { !pairKeys.isEmpty || !ownPairs.isEmpty }
+    /// Words such as 跑得, 過得, 說得: a verb with 得 that a complement (很快, 非常好) usually follows.
+    private(set) var verbDe: Set<UInt32> = []
+    /// Words that open a complement of degree: 很, 非常, 太, 真, ...
+    private(set) var degree: Set<UInt32> = []
+    static let degreeOpeners: [Character] = ["很", "非", "太", "真", "越", "特", "挺", "蠻", "超", "更", "相", "十", "極", "這", "那"]
 
     /// A personal-dictionary entry offered by Tab: starts with English letters or Chinese syllables.
     struct UserEntry {
@@ -77,6 +82,16 @@ public final class Lexicon {
         for i in nodes.indices where nodes[i].entries.count > 1 {
             nodes[i].entries.sort { $0.score > $1.score }
         }
+        for row in rows where row.word.count >= 2 {
+            if row.word.last == "得" { verbDe.insert(Self.wordID(String(row.word))) }
+            if let first = row.word.first, Self.degreeOpeners.contains(first) {
+                let w = String(row.word)
+                if ["很", "非常", "太", "真", "越", "特別", "挺", "蠻", "超", "更", "相當", "十分", "極", "這麼", "那麼"].contains(where: { w.hasPrefix($0) }) {
+                    degree.insert(Self.wordID(w))
+                }
+            }
+        }
+        for single in ["很", "太", "真", "挺", "蠻", "超", "更", "極"] { degree.insert(Self.wordID(single)) }
     }
 
     /// The most a rare reading is pushed down (log10), so it can still be typed and picked.
