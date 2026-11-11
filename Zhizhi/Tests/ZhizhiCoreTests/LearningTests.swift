@@ -41,6 +41,32 @@ final class CorrectionTests: XCTestCase {
         let plan = try XCTUnwrap(decoder.correctionPlan(keys: keys, segments: decoder.decode(keys: keys)))
         XCTAssertEqual(plan.texts.first, "你好")
     }
+    func testRewriteCanOnlyMakeSwapsThePlanAllows() throws {
+        let decoder = makeDecoder()
+        let keys = Array("su3cl3")
+        let plan = try XCTUnwrap(decoder.correctionPlan(keys: keys, segments: decoder.decode(keys: keys)))
+        let good = try XCTUnwrap(plan.scores(forRewrite: "你郝"))
+        let found = decoder.corrections(plan: plan, logprobs: good, threshold: 2.5)
+        XCTAssertEqual(decoder.render(decoder.decode(keys: keys, constraints: found)), "你郝")
+        // A different character of the same length: not a same-sound choice, so nothing changes.
+        let invented = try XCTUnwrap(plan.scores(forRewrite: "您好"))
+        XCTAssertTrue(decoder.corrections(plan: plan, logprobs: invented, threshold: 2.5).isEmpty)
+        XCTAssertTrue(decoder.corrections(plan: plan, logprobs: try XCTUnwrap(plan.scores(forRewrite: "你好")), threshold: 2.5).isEmpty)
+    }
+    func testAddedPunctuationDoesNotSpoilARewrite() throws {
+        let decoder = makeDecoder()
+        let keys = Array("su3cl3")
+        let plan = try XCTUnwrap(decoder.correctionPlan(keys: keys, segments: decoder.decode(keys: keys)))
+        let found = decoder.corrections(plan: plan, logprobs: try XCTUnwrap(plan.scores(forRewrite: "你郝。")), threshold: 2.5)
+        XCTAssertEqual(decoder.render(decoder.decode(keys: keys, constraints: found)), "你郝")
+    }
+    func testRewriteOfAnotherLengthIsIgnored() throws {
+        let decoder = makeDecoder()
+        let keys = Array("su3cl3")
+        let plan = try XCTUnwrap(decoder.correctionPlan(keys: keys, segments: decoder.decode(keys: keys)))
+        XCTAssertNil(plan.scores(forRewrite: "你好嗎"))
+        XCTAssertNil(plan.scores(forRewrite: "好"))
+    }
     func testPickedTextIsNeverReconsidered() {
         let decoder = makeDecoder()
         var composition = Composition()

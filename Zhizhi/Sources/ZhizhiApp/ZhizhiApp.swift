@@ -110,7 +110,8 @@ struct HomePage: View {
             }
             Section("目前") {
                 LabeledContent("AI 修正") {
-                    Text(!model.modelInstalled ? "沒有模型" : model.settings.aiCorrections ? "開啟" : "關閉")
+                    let name = model.settings.aiModel == .apple ? "Apple 模型" : "Qwen"
+                    Text(!model.chosenModelReady ? "\(name) 無法使用" : model.settings.aiCorrections ? "開啟（\(name)）" : "關閉")
                 }
                 LabeledContent("個人詞典") {
                     let auto = model.dictionary.entries.filter { $0.source == .auto }.count
@@ -315,11 +316,32 @@ struct AIPage: View {
     var body: some View {
         Form {
             Section {
-                Toggle("自動修正同音字", isOn: $model.settings.aiCorrections).disabled(!model.modelInstalled)
+                Toggle("自動修正同音字", isOn: $model.settings.aiCorrections).disabled(!model.chosenModelReady)
+                Picker("使用的模型", selection: $model.settings.aiModel) {
+                    Text("Qwen（修得較多，需下載）").tag(Settings.AIModel.qwen)
+                    Text("Apple 模型（免下載，較保守）").tag(Settings.AIModel.apple)
+                }
+                if !model.chosenModelReady {
+                    Text(model.settings.aiModel == .apple ? "Apple 模型目前無法使用，不會自動改用 Qwen。" : "Qwen 尚未下載，不會自動改用 Apple 模型。")
+                        .font(.caption).foregroundStyle(.orange)
+                }
                 Text("停下來約 0.35 秒後，修正還沒送出的字，改過的字會短暫加粗底線。Cmd-Z 可還原並鎖定，你選過的字不會被改。")
                     .font(.caption).foregroundStyle(.secondary)
             }
-            Section("模型") {
+            Section("Apple 模型") {
+                LabeledContent("狀態") {
+                    switch model.appleStatus {
+                    case .available: Text("可以使用")
+                    case .osTooOld: Text("需要 macOS 26 以上").foregroundStyle(.orange)
+                    case .deviceNotEligible: Text("這台 Mac 不支援").foregroundStyle(.orange)
+                    case .appleIntelligenceOff: Text("請先在系統設定開啟 Apple 智慧").foregroundStyle(.orange)
+                    case .modelNotReady: Text("系統還在準備模型").foregroundStyle(.orange)
+                    case .unknown: Text("目前無法使用").foregroundStyle(.orange)
+                    }
+                }
+                LabeledContent("大小與記憶體") { Text("由系統管理，知之不另外占用") }
+            }
+            Section("Qwen 模型") {
                 LabeledContent("Qwen2.5-1.5B-4bit") {
                     Text(model.modelInstalled ? "已安裝" : "尚未安裝").foregroundStyle(model.modelInstalled ? Color.secondary : Color.orange)
                 }
@@ -335,7 +357,7 @@ struct AIPage: View {
                 }
             }
             Section("隱私") {
-                Text("模型只從 Hugging Face 下載一次，並核對檔案雜湊。之後全部在這台 Mac 上執行，打字內容不會上傳。沒有模型也能正常打字。")
+                Text("兩個模型都只在這台 Mac 上執行，知之只用 Apple 的裝置端模型，打字內容不會上傳。Qwen 只從 Hugging Face 下載一次，並核對檔案雜湊。沒有模型也能正常打字。")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }

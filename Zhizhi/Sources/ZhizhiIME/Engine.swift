@@ -11,9 +11,13 @@ final class Engine {
 
     private(set) var decoder: Decoder = Decoder(lexicon: Lexicon())
     private(set) var learner: Learner?
-    private(set) lazy var ai = HelperClient(
+    private lazy var qwen = HelperClient(
         executable: Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/zhizhi-ai"),
         model: paths.models.appendingPathComponent(ModelManifest.qwen.name))
+    private let apple = AppleModelBackend()
+    /// The model the owner chose. If it cannot run, there are no corrections: it never quietly uses the other.
+    var ai: CorrectionBackend { settings.aiModel == .apple ? apple : qwen }
+    var aiFailure: String? { settings.aiModel == .apple ? apple.lastFailure : nil }
     private let saving = DispatchQueue(label: "zhizhi.save")
     private var saveScheduled = false
 
@@ -46,7 +50,7 @@ final class Engine {
     private func reloadSettings() {
         settings = Settings(defaults: Settings.sharedDefaults)
         settings.apply(to: decoder)
-        if !settings.aiCorrections { ai.stop() }
+        releaseUnusedModel()
     }
 
     /// A change made from the input menu.
@@ -54,6 +58,12 @@ final class Engine {
         change(&settings)
         settings.save(to: Settings.sharedDefaults)
         settings.apply(to: decoder)
+        releaseUnusedModel()
+    }
+
+    /// Qwen holds over a gigabyte while loaded: let go as soon as it is not the model in use.
+    private func releaseUnusedModel() {
+        if !settings.aiCorrections || settings.aiModel != .qwen { qwen.stop() }
     }
 
     /// Saves a moment after the last change, off the main thread, so typing never waits for the disk.
@@ -63,10 +73,13 @@ final class Engine {
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
             guard let self else { return }
             self.saveScheduled = false
-            let dictionary = learner.dictionary, paths = self.paths
+            let learned = learner.takeUnsaved(), paths = self.paths
             let state = try? JSONEncoder().encode(learner.state)
             self.saving.async {
-                try? paths.save(dictionary)
+                if !learned.isEmpty, let merged = try? paths.merge(learned: learned) {
+                    DispatchQueue.main.async { learner.reload(merged) }
+                }
+                try? FileManager.default.createDirectory(at: paths.support, withIntermediateDirectories: true)
                 try? state?.write(to: paths.learning, options: .atomic)
                 try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: paths.learning.path)
             }

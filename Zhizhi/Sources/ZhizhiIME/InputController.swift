@@ -66,11 +66,10 @@ final class ZhizhiInputController: IMKInputController {
         let key = translate(event)
         if !session.isComposing { session.setPreviousCharacter(characterBeforeCaret(client: sender)) }
         let output = session.handle(key)
-        DebugLog.shared.record("key=\(Self.describe(key)) -> handled=\(output.handled) composing=\(session.isComposing) kinds=\(kinds()) commit=\(output.commit != nil)")
         apply(output, client: sender)
+        scheduleCorrection(client: sender)
         let ms = Int((CFAbsoluteTimeGetCurrent() - started) * 1000)
         DebugLog.shared.record("key=\(Self.describe(key)) -> handled=\(output.handled) composing=\(session.isComposing) kinds=\(kinds()) commit=\(output.commit != nil) ms=\(ms)")
-        scheduleCorrection(client: sender)
         return output.handled
     }
 
@@ -99,10 +98,11 @@ final class ZhizhiInputController: IMKInputController {
     private func runCorrection(client: Any!) {
         guard !scoring, let request = session.correctionRequest() else { return }
         scoring = true
-        Engine.shared.ai.score(request.plan.texts) { [weak self] scores in
+        Engine.shared.ai.score(plan: request.plan) { [weak self] scores in
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.scoring = false
+                if scores == nil, let failure = Engine.shared.aiFailure { DebugLog.shared.record("ai failed=\(failure)") }
                 if let scores, let output = self.session.applyCorrections(
                     plan: request.plan, generation: request.generation, logprobs: scores, threshold: Engine.correctionThreshold) {
                     DebugLog.shared.record("ai corrected=\(output.corrected.count)")
@@ -282,7 +282,8 @@ final class ZhizhiInputController: IMKInputController {
         open.target = self
         menu.addItem(.separator())
         let hasModel = Engine.shared.ai.isAvailable
-        toggle(hasModel ? "AI 自動修正同音字" : "AI 自動修正同音字（尚未安裝模型）", #selector(toggleAI(_:)), on: hasModel && settings.aiCorrections, enabled: hasModel)
+        let modelName = settings.aiModel == .apple ? "Apple 模型" : "Qwen"
+        toggle(hasModel ? "AI 自動修正同音字（\(modelName)）" : "AI 自動修正同音字（\(modelName) 無法使用）", #selector(toggleAI(_:)), on: hasModel && settings.aiCorrections, enabled: hasModel)
         toggle("暫停學習", #selector(toggleLearning(_:)), on: settings.learningPaused)
         toggle("保留句子歷史（90 天，加密）", #selector(toggleHistory(_:)), on: settings.sentenceHistory)
         let clearHistory = menu.addItem(withTitle: "清除句子歷史", action: #selector(clearSentenceHistory(_:)), keyEquivalent: "")
@@ -301,7 +302,6 @@ final class ZhizhiInputController: IMKInputController {
 
     @objc private func toggleAI(_ sender: Any?) {
         Engine.shared.update { $0.aiCorrections.toggle() }
-        if !Engine.shared.settings.aiCorrections { Engine.shared.ai.stop() }
     }
     @objc private func toggleLearning(_ sender: Any?) { Engine.shared.update { $0.learningPaused.toggle() } }
     @objc private func toggleHistory(_ sender: Any?) { Engine.shared.update { $0.sentenceHistory.toggle() } }

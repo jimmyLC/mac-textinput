@@ -24,10 +24,16 @@ final class SettingsTests: XCTestCase {
         s.escapeClears = true
         s.candidatesPerPage = 5
         s.aiCorrections = false
+        s.aiModel = .apple
         s.learningPaused = true
         s.sentenceHistory = true
         s.save(to: defaults)
         XCTAssertEqual(Settings(defaults: defaults), s)
+    }
+    func testQwenStaysTheDefaultModel() {
+        XCTAssertEqual(Settings(defaults: defaults).aiModel, .qwen)
+        defaults.set("nonsense", forKey: "AIModel")
+        XCTAssertEqual(Settings(defaults: defaults).aiModel, .qwen)
     }
     func testBadPageSizeFallsBack() {
         defaults.set(99, forKey: "CandidatesPerPage")
@@ -134,6 +140,25 @@ final class DictionarySyncTests: XCTestCase {
         XCTAssertEqual(lexicon.suggestedReading(for: "品瑞"), "ㄆㄧㄣˇ-ㄖㄨㄟˋ")
         XCTAssertEqual(lexicon.suggestedReading(for: "品ID"), "ㄆㄧㄣˇ")
         XCTAssertEqual(lexicon.suggestedReading(for: "OpenAI"), "")
+    }
+    func testLearnedWordsDoNotUndoWhatTheAppChanged() throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let paths = ZhizhiPaths(support: folder)
+        let (learner, _, _) = make()
+        for _ in 0..<3 { learner.committed(english: "Zhizhi") }
+        for _ in 0..<3 { learner.committed(english: "Gone") }
+        // Meanwhile the App adds one word and deletes another.
+        var edited = PersonalDictionary()
+        edited.add(.init(text: "依建議", reading: "", source: .manual, added: Date(timeIntervalSince1970: 1)))
+        edited.delete("Gone")
+        try paths.save(edited)
+        let merged = try paths.merge(learned: learner.takeUnsaved())
+        XCTAssertEqual(merged.entries.map(\.text), ["依建議", "Zhizhi"])
+        XCTAssertEqual(paths.loadDictionary(), merged)
+        XCTAssertTrue(learner.takeUnsaved().isEmpty)
+        learner.reload(merged)
+        XCTAssertEqual(learner.dictionary, merged)
     }
     func testDictionaryFilesRoundTrip() throws {
         let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

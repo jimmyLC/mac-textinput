@@ -52,7 +52,7 @@ final class AppModel: ObservableObject {
         dictionary = paths.loadDictionary()
         refresh()
         // Offered once, as agreed; the AI page offers it for good.
-        if !modelInstalled, !UserDefaults.standard.bool(forKey: "ModelOfferShown") {
+        if !modelInstalled, AppleModelBackend.status != .available, !UserDefaults.standard.bool(forKey: "ModelOfferShown") {
             UserDefaults.standard.set(true, forKey: "ModelOfferShown")
             offerModelDownload = true
         }
@@ -244,6 +244,13 @@ final class AppModel: ObservableObject {
     }
 
     // MARK: - Model
+
+    var appleStatus: AppleModelBackend.Status { AppleModelBackend.status }
+
+    /// Whether the model chosen in settings can run right now.
+    var chosenModelReady: Bool {
+        settings.aiModel == .apple ? appleStatus == .available : modelInstalled
+    }
 
     var modelSizeText: String { ByteCountFormatter.string(fromByteCount: ModelManifest.qwen.totalSize, countStyle: .file) }
 

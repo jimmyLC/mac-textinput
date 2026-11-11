@@ -89,6 +89,7 @@ public final class Learner {
 
     public private(set) var dictionary: PersonalDictionary
     public private(set) var state: State
+    private var unsaved: [PersonalDictionary.Entry] = []
     private let lexicon: Lexicon
     private let clock: () -> Date
     /// Called after anything changed, so the owner can save.
@@ -147,9 +148,17 @@ public final class Learner {
 
     private func add(_ entry: PersonalDictionary.Entry) {
         guard !dictionary.deleted.contains(entry.text), dictionary.add(entry) else { return }
+        unsaved.append(entry)
         if entry.reading.isEmpty { lexicon.addUserEnglish(entry.text) }
         else { lexicon.addUserChinese(entry.text, reading: entry.reading) }
         onChange?()
+    }
+
+    /// Entries learned since the last call. The files stay the source of truth, so these get
+    /// merged into them instead of overwriting what the App may have changed.
+    public func takeUnsaved() -> [PersonalDictionary.Entry] {
+        defer { unsaved.removeAll() }
+        return unsaved
     }
 
     /// Takes over a dictionary edited elsewhere (the App), adjusting typing to match.

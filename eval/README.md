@@ -54,3 +54,12 @@ Replaying the owner's key log (private, not in the repo): none of the old wrong 
 | 2.5 (shipped) | 363 = 89% | 79/115 = 69% | 16/3568 = 0.45% |
 | 4.0 | 363 = 89% | 74/115 | 11/3568 |
 Helper per sentence: p50 449 ms, p95 1857 ms, off the key path. Peak memory about 1.3 GB while loaded, freed after 5 idle minutes. Swift and Python log-probabilities agree within about 0.1. Caveats: the threshold was picked on this same set, the sentences are self-written, and real typing commits without always pausing, so real-use accuracy will be lower. The 90% gate is not met.
+
+## Apple's on-device model as a choice (2026-11-05)
+`zhizhi-eval .. apple` uses the same sentences and engine. The model rewrites the sentence, and only same-sound swaps the plan allows come through; punctuation it adds is ignored, and an answer of another length is dropped (22 of 406 here).
+| model | exact | wrong characters fixed | right characters broken | per sentence | memory | disk |
+|---|---|---|---|---|---|---|
+| engine only | 314 = 77% | - | - | - | - | - |
+| Apple on-device | 344 = 84% | 38/115 = 33% | 2/3568 = 0.06% | p50 383 ms, p95 568 ms | system | 0 |
+| Qwen 1.5B, threshold 2.5 | 363 = 89% | 79/115 = 69% | 16/3568 = 0.45% | p50 449 ms, p95 1857 ms | about 1.3 GB | 880 MB |
+Same caveats as above. Measured from a command-line process; an input method runs in the background, where the system may limit this model more, which is not measured.

@@ -106,6 +106,43 @@ case "ai":
         print("tau \(threshold): exact \(exact)/\(runs.count) (\(exact * 100 / max(runs.count, 1))%); fixed \(fixed)/\(wrongBefore); broken \(broken)/\(rightBefore)")
         if threshold == 2 { failures.forEach { print("  " + $0) } }
     }
+case "apple":
+    // zhizhi-eval <root> apple: the sentence set through Apple's on-device model, as the input method uses it.
+    struct Row: Decodable { let gold: String; let syllables: [String] }
+    let rows = try! JSONDecoder().decode([Row].self, from: Data(contentsOf: URL(fileURLWithPath: root + "/eval/baseline.json")))
+    let backend = AppleModelBackend()
+    print("status: \(AppleModelBackend.status)")
+    var exact = 0, wrongBefore = 0, fixed = 0, broken = 0, rightBefore = 0, noAnswer = 0
+    var failures: [String] = []
+    var times: [Double] = []
+    for row in rows {
+        let keys = Array(row.syllables.map(Zhuyin.keys(forSyllable:)).joined())
+        let segments = decoder.decode(keys: keys)
+        let before = normalized(decoder.render(segments))
+        var after = before
+        if let plan = decoder.correctionPlan(keys: keys, segments: segments) {
+            let done = DispatchSemaphore(value: 0)
+            var scores: [Float]?
+            let t = Date()
+            backend.score(plan: plan) { scores = $0; done.signal() }
+            done.wait()
+            times.append(Date().timeIntervalSince(t) * 1000)
+            if let scores {
+                let constraints = decoder.corrections(plan: plan, logprobs: scores, threshold: 2.5)
+                after = normalized(decoder.render(decoder.decode(keys: keys, constraints: constraints)))
+            } else { noAnswer += 1 }
+        }
+        let gold = normalized(row.gold)
+        if after == gold { exact += 1 } else { failures.append("\(row.gold) -> \(after)") }
+        guard before.count == gold.count, after.count == gold.count else { continue }
+        for (b, (a, g)) in zip(before, zip(after, gold)) {
+            if b == g { rightBefore += 1; if a != g { broken += 1 } }
+            else { wrongBefore += 1; if a == g { fixed += 1 } }
+        }
+    }
+    print(String(format: "per sentence: p50 %.0f ms, p95 %.0f ms", percentile(times, 0.5), percentile(times, 0.95)))
+    print("exact \(exact)/\(rows.count) (\(exact * 100 / max(rows.count, 1))%); fixed \(fixed)/\(wrongBefore); broken \(broken)/\(rightBefore); no usable answer \(noAnswer); last failure \(backend.lastFailure ?? "none")")
+    failures.forEach { print("  " + $0) }
 case "mixed":
     struct Row: Decodable { let gold: String; let keys: String }
     let rows = try! JSONDecoder().decode([Row].self, from: Data(contentsOf: URL(fileURLWithPath: root + "/eval/mixed.json")))

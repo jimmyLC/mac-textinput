@@ -5,6 +5,7 @@ public struct Settings: Equatable {
     public enum Language: String, CaseIterable { case chineseFirst, englishFirst }
     public enum SwitchKey: String, CaseIterable { case leftShift, rightShift, none }
     public enum PunctuationWidth: String, CaseIterable { case follow, full, half }
+    public enum AIModel: String, CaseIterable { case qwen, apple }
 
     public var language = Language.chineseFirst
     public var switchKey = SwitchKey.leftShift
@@ -14,6 +15,7 @@ public struct Settings: Equatable {
     public var escapeClears = false
     public var candidatesPerPage = 9
     public var aiCorrections = true
+    public var aiModel = AIModel.qwen
     public var learningPaused = false
     /// Off until the owner has verified on this Mac that secure fields bypass the input method.
     public var sentenceHistory = false
@@ -44,6 +46,7 @@ public struct Settings: Equatable {
         let page = defaults.integer(forKey: "CandidatesPerPage")
         if Self.pageSizes.contains(page) { candidatesPerPage = page }
         aiCorrections = !defaults.bool(forKey: "AICorrectionsOff")
+        if let v = defaults.string(forKey: "AIModel").flatMap(AIModel.init) { aiModel = v }
         learningPaused = defaults.bool(forKey: "LearningPaused")
         sentenceHistory = defaults.bool(forKey: "SentenceHistoryOn")
     }
@@ -57,6 +60,7 @@ public struct Settings: Equatable {
         defaults.set(escapeClears, forKey: "EscapeClears")
         defaults.set(candidatesPerPage, forKey: "CandidatesPerPage")
         defaults.set(!aiCorrections, forKey: "AICorrectionsOff")
+        defaults.set(aiModel.rawValue, forKey: "AIModel")
         defaults.set(learningPaused, forKey: "LearningPaused")
         defaults.set(sentenceHistory, forKey: "SentenceHistoryOn")
         defaults.synchronize()
@@ -100,6 +104,15 @@ public struct ZhizhiPaths {
     public func loadDictionary() -> PersonalDictionary {
         PersonalDictionary(tsv: (try? String(contentsOf: dictionary, encoding: .utf8)) ?? "",
                            deleted: (try? String(contentsOf: deleted, encoding: .utf8)) ?? "")
+    }
+
+    /// Adds learned entries to what is on disk now. A word the App deleted in the meantime stays deleted.
+    @discardableResult
+    public func merge(learned: [PersonalDictionary.Entry]) throws -> PersonalDictionary {
+        var current = loadDictionary()
+        for entry in learned where !current.deleted.contains(entry.text) { current.add(entry) }
+        try save(current)
+        return loadDictionary()    // exactly what is on disk, whole seconds included
     }
 
     public func save(_ value: PersonalDictionary) throws {

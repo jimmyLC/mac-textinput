@@ -24,6 +24,7 @@ A from-scratch rewrite replacing the McBopomofo-based ZhuyinLM. The goal is typi
 
 ## Local AI
 - After a pause, silently corrects uncommitted, unlocked characters above a conservative threshold; can be turned off. Changed characters get a faint mark for about 1 second; Cmd-Z restores and locks.
+- The owner chooses the model in the App: Qwen (default) or Apple's on-device model (added 2026-11-05; eval/README.md compares them). If the chosen one cannot run there are no corrections; it never quietly uses the other. Apple's model rewrites, so only same-sound swaps from the correction plan are accepted.
 - Qwen2.5-1.5B-4bit in a separate Swift/MLX helper; key handling never waits for it; unloaded when idle. Download is offered at first launch and in settings. Without a model, typing still works.
 
 ## Dictionary and learning
