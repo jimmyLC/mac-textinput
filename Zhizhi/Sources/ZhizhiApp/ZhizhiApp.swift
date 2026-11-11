@@ -152,6 +152,7 @@ struct DictionaryPage: View {
     @State private var onlyAuto = false
     @State private var adding = false
     @State private var selection = Set<String>()
+    @State private var showFavourites = false
 
     private var rows: [PersonalDictionary.Entry] {
         model.dictionary.entries
@@ -162,9 +163,27 @@ struct DictionaryPage: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if model.dictionary.entries.isEmpty {
+            Picker("", selection: $showFavourites) {
+                Text("個人詞典 \(model.dictionary.entries.count)").tag(false)
+                Text("常選字詞 \(model.favourites.count)").tag(true)
+            }
+            .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 320).padding(.vertical, 8)
+            if showFavourites {
+                if model.favourites.isEmpty {
+                    ContentUnavailableView("還沒有常選字詞", systemImage: "hand.tap",
+                                           description: Text("你在候選字裡選過同一個字詞兩次以上，就會出現在這裡，打字時會優先排前面。"))
+                } else {
+                    Table(model.favourites.filter { query.isEmpty || $0.word.localizedCaseInsensitiveContains(query) }) {
+                        TableColumn("字詞") { Text($0.word) }
+                        TableColumn("注音") { Text($0.reading.replacingOccurrences(of: "-", with: " ")).foregroundStyle(.secondary) }
+                        TableColumn("選過") { Text("\($0.picks) 次") }.width(70)
+                    }
+                    Text("這些是詞庫裡本來就有的字詞，只是你常選，所以不算新詞，不會加進個人詞典。")
+                        .font(.caption).foregroundStyle(.secondary).padding(8)
+                }
+            } else if model.dictionary.entries.isEmpty {
                 ContentUnavailableView("詞典是空的", systemImage: "character.book.closed",
-                                       description: Text("選字和常打的英文會自動加進來，也可以手動新增或匯入。"))
+                                       description: Text("詞庫裡沒有的新詞和常打的新英文單字會自動加進來，也可以手動新增或匯入。你常選的字詞在「常選字詞」。"))
             } else {
                 Table(rows, selection: $selection) {
                     TableColumn("詞") { Text($0.text) }
@@ -175,6 +194,8 @@ struct DictionaryPage: View {
                 .contextMenu(forSelectionType: String.self) { items in
                     Button("刪除，且不再自動學回來") { items.forEach(model.deleteEntry) }
                 }
+                Text("個人詞典只收詞庫裡沒有的新詞：連選兩次的新片語、打過三次的新英文單字。")
+                    .font(.caption).foregroundStyle(.secondary).padding(8)
             }
         }
         .searchable(text: $query, prompt: "搜尋詞典")
@@ -191,6 +212,10 @@ struct DictionaryPage: View {
         }
         .sheet(isPresented: $adding) { AddEntrySheet() }
     }
+}
+
+extension Learner.Boost: Identifiable {
+    public var id: String { word + "\t" + reading }
 }
 
 extension PersonalDictionary.Entry: Identifiable {
