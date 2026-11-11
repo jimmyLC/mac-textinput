@@ -57,6 +57,7 @@ public final class Decoder {
         public var strayLetter: Float = 12.0          // a mistyped letter next to real text
         public var literalPunctuation: Float = 14.0
         public var space: Float = 0.5
+        public var listMarker: Float = 2.0            // "2." at the start of a line or after a space, as in a numbered list
         public init() {}
     }
 
@@ -368,6 +369,7 @@ public final class Decoder {
         englishEdges(from: i, keys: keys, context: context, into: &out)
         tokenEdges(from: i, keys: keys, into: &out)
         numberEdge(from: i, keys: keys, into: &out)
+        listMarkerEdge(from: i, keys: keys, into: &out)
         literalEdge(from: i, keys: keys, context: context, into: &out)
         return out.filter { edge in
             for k in i..<edge.end where k < fixedAt.count {
@@ -533,6 +535,15 @@ public final class Decoder {
               parts.allSatisfy({ $0.first!.isLetter || $0.allSatisfy({ $0.isNumber }) }),
               parts.contains(where: { lexicon.englishRank[$0.lowercased()] != nil }) else { return }
         out.append(Edge(end: j, kind: .english, text: token, cost: costs.joinedToken + Float(j - i) * costs.perTokenKey))
+    }
+
+    /// "2." typed on its own (start of the text or after a space, then a space or nothing) is a list number,
+    /// not ㄉㄡ. A tone key or letters after the dot keep the Zhuyin reading: "2.4" is still 豆.
+    private func listMarkerEdge(from i: Int, keys: [Character], into out: inout [Edge]) {
+        guard keys[i].isASCII, keys[i].isNumber, i + 1 < keys.count, keys[i + 1] == ".",
+              i == 0 || keys[i - 1] == " ",
+              i + 2 == keys.count || keys[i + 2] == " " else { return }
+        out.append(Edge(end: i + 2, kind: .other, text: String(keys[i...(i + 1)]), cost: costs.listMarker, keepsLanguage: true))
     }
 
     private func numberEdge(from i: Int, keys: [Character], into out: inout [Edge]) {
