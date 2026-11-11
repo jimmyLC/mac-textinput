@@ -282,7 +282,7 @@ final class ZhizhiInputController: IMKInputController {
     // MARK: - Menu
 
     override func menu() -> NSMenu! {
-        let menu = NSMenu(title: "知之")
+        let menu = NSMenu(title: "知之輸入法")
         func toggle(_ title: String, _ action: Selector, on: Bool, enabled: Bool = true) {
             let item = menu.addItem(withTitle: title, action: enabled ? action : nil, keyEquivalent: "")
             item.target = self
