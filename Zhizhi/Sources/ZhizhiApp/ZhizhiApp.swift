@@ -6,7 +6,7 @@ struct ZhizhiApplication: App {
     @StateObject private var model = AppModel()
 
     var body: some Scene {
-        WindowGroup("知之") {
+        WindowGroup("知之輸入法") {
             RootView()
                 .environmentObject(model)
                 .frame(minWidth: 760, minHeight: 520)
