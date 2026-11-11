@@ -163,8 +163,12 @@ public final class Decoder {
                 for edgeIndex in edgesFor[state.context]! {
                     let edge = edgeStore[Int(edgeIndex)]
                     var cost = state.cost + edge.cost
-                    if edge.word != 0, state.word != 0, let pair = lexicon.pairScore(state.word, edge.word) {
-                        cost -= pairGain(pair: pair, alone: edge.score)
+                    if edge.word != 0, state.word != 0 {
+                        var gain: Float = 0
+                        if let pair = lexicon.pairScore(state.word, edge.word) { gain = pairGain(pair: pair, alone: edge.score) }
+                        // What the user chose in this very spot counts for more than what the corpus saw.
+                        if let own = lexicon.ownPairGain(state.word, edge.word) { gain = max(gain, own) }
+                        cost -= gain
                     }
                     let language = edge.kind == .pending ? Segment.Kind.chinese : edge.kind
                     var next = previous
@@ -454,7 +458,8 @@ public final class Decoder {
     }
 
     private func chineseEdges(from start: Int, keys: [Character], spans: [[Span]], into out: inout [Edge]) {
-        var bestByEnd: [Int: [(cost: Float, word: String, ends: [Int], score: Float)]] = [:]
+        var bestByEnd: [Int: [(cost: Float, word: String, ends: [Int], score: Float, id: UInt32)]] = [:]
+        var chosen: [Int: [(cost: Float, word: String, ends: [Int], score: Float, id: UInt32)]] = [:]   // words the user has paired
         var typed: [UInt8] = []
         var ends: [Int] = []
         let keep = lexicon.hasPairs ? max(1, costs.wordsPerSpan) : 1
@@ -469,6 +474,10 @@ public final class Decoder {
                     guard let penalty = tonePenalty(typed: typed, entry: entry.tones) else { continue }
                     if typed.contains(Zhuyin.Tone.none), entry.score < costs.tonelessMinScore { continue }
                     let cost = -entry.score + penalty
+                    if lexicon.ownPairWords.contains(entry.id) {
+                        chosen[span.end, default: []].append((cost, entry.word, ends, entry.score, entry.id))
+                        continue
+                    }
                     var list = bestByEnd[span.end] ?? []
                     if list.count == keep, cost >= list[list.count - 1].cost { continue }
                     if let same = list.firstIndex(where: { $0.word == entry.word }) {
@@ -476,7 +485,7 @@ public final class Decoder {
                         list.remove(at: same)
                     }
                     let at = list.firstIndex(where: { cost < $0.cost }) ?? list.count
-                    list.insert((cost, entry.word, ends, entry.score), at: at)
+                    list.insert((cost, entry.word, ends, entry.score, entry.id), at: at)
                     if list.count > keep { list.removeLast() }
                     bestByEnd[span.end] = list
                 }
@@ -486,10 +495,12 @@ public final class Decoder {
             }
         }
         walk(node: 0, at: start)
-        for (end, list) in bestByEnd {
-            for best in list {
-                out.append(Edge(end: end, kind: .chinese, text: best.word, cost: best.cost, syllableEnds: best.ends,
-                                word: Lexicon.wordID(best.word), score: best.score))
+        for list in [bestByEnd, chosen] {
+            for (end, words) in list {
+                for best in words {
+                    out.append(Edge(end: end, kind: .chinese, text: best.word, cost: best.cost, syllableEnds: best.ends,
+                                    word: best.id, score: best.score))
+                }
             }
         }
     }

@@ -154,6 +154,62 @@ final class LearnerTests: XCTestCase {
         commitWithPick(session, keys: "y94", pick: 2)
         XCTAssertEqual(learner.state.boosts["再\tㄗㄞˋ"]?.picks, 1)
     }
+    // MARK: - Choices in context
+
+    func makeSentenceSession() -> (Learner, Decoder, Session) {
+        let lexicon = Lexicon()
+        lexicon.loadChinese(tsv: """
+        我們\t-3\tㄨㄛˇ-ㄇㄣ˙
+        在\t-3\tㄗㄞˋ
+        再\t-4\tㄗㄞˋ
+        討論\t-4\tㄊㄠˇ-ㄌㄨㄣˋ
+        家\t-4\tㄐㄧㄚ
+        """)
+        let learner = Learner(lexicon: lexicon)
+        let decoder = Decoder(lexicon: lexicon)
+        let session = Session(decoder: decoder)
+        session.learner = learner
+        return (learner, decoder, session)
+    }
+    /// Types 我們, picks the nth ㄗㄞˋ, then types 討論 and commits.
+    func discuss(_ session: Session, pick: Int) {
+        "ji3ap7y94".forEach { _ = session.handle(.character($0)) }
+        _ = session.handle(.down)
+        _ = session.handle(.character(Character(String(pick))))
+        "wl3xjp4".forEach { _ = session.handle(.character($0)) }
+        _ = session.handle(.enter)
+    }
+    func testAChoiceIsRememberedForItsNeighboursOnly() {
+        let (learner, decoder, session) = makeSentenceSession()
+        let sentence = "ji3ap7y94wl3xjp4"
+        XCTAssertEqual(decoder.render(decoder.decode(sentence)), "我們在討論")
+        discuss(session, pick: 2)
+        XCTAssertEqual(decoder.render(decoder.decode(sentence)), "我們再討論", "one choice is enough in the same spot")
+        XCTAssertEqual(decoder.render(decoder.decode("y94")), "在", "the word alone is not raised")
+        XCTAssertEqual(decoder.render(decoder.decode("y94ru8 ")), "在家", "nor next to other words")
+        XCTAssertTrue(learner.state.boosts.isEmpty)
+        let saved = String(data: try! JSONEncoder().encode(learner.state), encoding: .utf8)!
+        XCTAssertFalse(saved.contains("討論") || saved.contains("再"), "pairs are stored as ids, not text")
+    }
+    func testChoosingBackUndoesTheEarlierChoice() {
+        let (_, decoder, session) = makeSentenceSession()
+        discuss(session, pick: 2)
+        XCTAssertEqual(decoder.render(decoder.decode("ji3ap7y94wl3xjp4")), "我們再討論")
+        discuss(session, pick: 1)     // the list keeps its order: 在 is still first
+        XCTAssertEqual(decoder.render(decoder.decode("ji3ap7y94wl3xjp4")), "我們在討論")
+    }
+    func testPairsSurviveARestartAndOldFilesStillLoad() throws {
+        let (learner, _, session) = makeSentenceSession()
+        discuss(session, pick: 2)
+        let saved = try JSONEncoder().encode(learner.state)
+        let lexicon = Lexicon()
+        lexicon.loadChinese(tsv: "我們\t-3\tㄨㄛˇ-ㄇㄣ˙\n在\t-3\tㄗㄞˋ\n再\t-4\tㄗㄞˋ\n討論\t-4\tㄊㄠˇ-ㄌㄨㄣˋ\n")
+        _ = Learner(lexicon: lexicon, state: try JSONDecoder().decode(Learner.State.self, from: saved))
+        let decoder = Decoder(lexicon: lexicon)
+        XCTAssertEqual(decoder.render(decoder.decode("ji3ap7y94wl3xjp4")), "我們再討論")
+        let old = #"{"salt":"s","counts":{},"boosts":{}}"#
+        XCTAssertEqual(try JSONDecoder().decode(Learner.State.self, from: Data(old.utf8)).pairs, [:])
+    }
     func testUnknownEnglishNeedsThreeCommitsAndCountsAreNotReadable() {
         let (learner, _, _) = make()
         learner.committed(english: "Zhizhi")

@@ -79,7 +79,16 @@ public final class Learner {
         public var salt = UUID().uuidString
         public var counts: [String: Int] = [:]        // hash of a word -> times seen
         public var boosts: [String: Boost] = [:]      // word + reading -> how often it was chosen
+        public var pairs: [String: Int] = [:]         // ids of two neighbouring words -> times chosen; no text
         public init() {}
+
+        public init(from decoder: Swift.Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            salt = try c.decode(String.self, forKey: .salt)
+            counts = try c.decode([String: Int].self, forKey: .counts)
+            boosts = try c.decode([String: Boost].self, forKey: .boosts)
+            pairs = try c.decodeIfPresent([String: Int].self, forKey: .pairs) ?? [:]   // files from before pairs existed
+        }
     }
     public struct Boost: Codable, Equatable {
         public var word: String
@@ -102,6 +111,44 @@ public final class Learner {
         self.clock = clock
         dictionary.load(into: lexicon)
         for boost in state.boosts.values { apply(boost) }
+        for (key, picks) in state.pairs { applyPair(key, picks: picks) }
+    }
+
+    static let pairLimit = 5                         // picks remembered per pair
+    /// How much cheaper a word is after (or before) the neighbour it was chosen next to. One choice must
+    /// already beat a commoner same-sound word and the corpus's pairs; later ones make it firmer.
+    static func pairGain(picks: Int) -> Float { min(3 + 0.5 * Float(picks - 1), 4.5) }
+
+    /// A candidate chosen between other Chinese words: "我們 再 討論". The choice belongs to its neighbours,
+    /// so it is remembered as pairs and the word is not raised everywhere. `replaced` is what stood there
+    /// before: its pairs with the same neighbours step down, so two choices in one spot cannot fight forever.
+    public func pickedBetween(word: String, previous: String?, next: String?, replaced: String?) {
+        let id = Lexicon.wordID(word)
+        let before = previous.map(Lexicon.wordID), after = next.map(Lexicon.wordID)
+        if let before { changePair(before, id, by: 1) }
+        if let after { changePair(id, after, by: 1) }
+        if let replaced, replaced != word {
+            let old = Lexicon.wordID(replaced)
+            if let before { changePair(before, old, by: -1) }
+            if let after { changePair(old, after, by: -1) }
+        }
+        onChange?()
+    }
+
+    private func changePair(_ first: UInt32, _ second: UInt32, by delta: Int) {
+        let key = "\(UInt64(first) << 32 | UInt64(second))"
+        let picks = min((state.pairs[key] ?? 0) + delta, Self.pairLimit)
+        guard picks > 0 else {
+            if state.pairs.removeValue(forKey: key) != nil { lexicon.setOwnPair(first: first, second: second, gain: nil) }
+            return
+        }
+        state.pairs[key] = picks
+        applyPair(key, picks: picks)
+    }
+
+    private func applyPair(_ key: String, picks: Int) {
+        guard let both = UInt64(key) else { return }
+        lexicon.setOwnPair(first: UInt32(both >> 32), second: UInt32(truncatingIfNeeded: both), gain: Self.pairGain(picks: picks))
     }
 
     /// A candidate the user chose. Common words rise; they never become dictionary entries.
