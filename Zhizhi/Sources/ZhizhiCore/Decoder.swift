@@ -48,6 +48,7 @@ public final class Decoder {
         public var unknownAfterEnglish: Float = 13.0
         public var pendingSyllable: Float = 6.0
         public var pendingAfterEnglish: Float = 6.0   // extra: letters right after English are probably English
+        public var englishAfterSpace: Float = 3.0     // 1-3 letters after a space that closed a toned syllable: show them as English now
         public var tonelessMinScore: Float = -6.5     // omitted tones only form common words
         public var number: Float = 15.0
         public var token: Float = 6.0
@@ -432,12 +433,24 @@ public final class Decoder {
     private func pendingEdge(from i: Int, keys: [Character], context: Segment.Kind, into out: inout [Edge]) {
         let rest = keys[i...]
         guard rest.count <= 3 else { return }
+        // "你好 ap": a space after a syllable that already has its tone key cannot be a tone itself,
+        // so the letters after it are English from the first key instead of waiting for the third.
+        if rest.allSatisfy({ $0.isASCII && $0.isLetter }), spaceClosesToneKey(keys, before: i) {
+            out.append(Edge(end: keys.count, kind: .english, text: String(rest), cost: costs.englishAfterSpace))
+            return
+        }
         let symbols = rest.compactMap { Zhuyin.symbolForKey[$0] }
         guard symbols.count == rest.count, let canonical = Zhuyin.canonical(symbols),
               lexicon.partialSyllables.contains(canonical) else { return }
         let afterEnglish = context == .english && rest.allSatisfy { $0.isLetter }
         out.append(Edge(end: keys.count, kind: .pending, text: canonical,
                         cost: costs.pendingSyllable + (afterEnglish ? costs.pendingAfterEnglish : 0)))
+    }
+
+    /// True when keys[i-1] is a space that follows a tone key (3 4 6 7), so it is a word boundary and not the first tone.
+    private func spaceClosesToneKey(_ keys: [Character], before i: Int) -> Bool {
+        guard i >= 2, keys[i - 1] == " " else { return false }
+        return Zhuyin.toneForKey[keys[i - 2]] != nil && keys[i - 2] != " "
     }
 
     private func englishCost(rank: Int) -> Float {

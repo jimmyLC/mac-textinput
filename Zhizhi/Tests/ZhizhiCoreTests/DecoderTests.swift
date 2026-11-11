@@ -46,6 +46,16 @@ final class DecoderTests: XCTestCase {
         XCTAssertEqual(text("283"), text("283"))
         XCTAssertEqual(kinds("283"), [.chinese], "ㄉㄚˇ")
     }
+    func testLettersAfterToneAndSpaceAreEnglishAtOnce() {
+        for typed in ["a", "ap", "app"] {
+            XCTAssertEqual(decoder.decode("su3cl3 " + typed).last?.kind, .english, "\(typed) after a closed syllable")
+        }
+        XCTAssertEqual(text("su3cl3 apple"), "你好 apple")
+    }
+    func testSpaceAsFirstToneStillBuildsChinese() {
+        XCTAssertEqual(decoder.decode("su cl").last?.kind, .chinese, "the space after ㄋㄧ is its tone, so ㄏㄠ goes on as Chinese")
+        XCTAssertEqual(text("su3cl3"), "你好")
+    }
     func testPendingSyllableShowsSymbols() { XCTAssertEqual(decoder.decode("su").last?.kind, .pending) }
     func testWrongToneIsTolerated() { XCTAssertEqual(text("su3cl "), "你好") }
     func testPickedCandidateIsKept() {
