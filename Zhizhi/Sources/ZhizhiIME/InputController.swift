@@ -11,6 +11,7 @@ final class ZhizhiInputController: IMKInputController {
     private static let tip = TipPanel()
 
     private static var mode = TypingMode()   // shared, so English mode follows the user across apps
+    private static var lastEnglishKey = Date.distantPast
 
     private lazy var session = Session(decoder: Engine.shared.decoder)
     private var tipUntil: Date?
@@ -52,6 +53,16 @@ final class ZhizhiInputController: IMKInputController {
         syncCaps(event, client: sender)
         if Self.mode.passesThrough {
             let flags = event.modifierFlags
+            DebugLog.shared.record("key=\(event.charactersIgnoringModifiers ?? "?") -> passthrough caps=\(Self.mode.capsOn) english=\(Self.mode.englishMode) shift=\(flags.contains(.shift))")
+            // English mode (unlike Caps Lock) has no light: remind at the start of each burst of typing.
+            if Self.mode.englishMode, !Self.mode.capsOn, Date().timeIntervalSince(Self.lastEnglishKey) > 3 {
+                Self.tip.show("English", under: lineRect(client: sender))
+                tipUntil = Date().addingTimeInterval(0.8)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.85) { [weak self] in
+                    if let until = self?.tipUntil, Date() >= until { Self.tip.hide() }
+                }
+            }
+            Self.lastEnglishKey = Date()
             if flags.isDisjoint(with: [.command, .control, .option]),
                let letter = event.charactersIgnoringModifiers?.first,
                let text = Self.mode.lowercaseOverride(letter: letter, shift: flags.contains(.shift)) {
