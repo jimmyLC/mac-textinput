@@ -75,7 +75,7 @@ private struct SetupCard: View {
     @EnvironmentObject private var model: AppModel
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            CardTitle(step: "1 / 4 · 開始", title: "先把輸入法裝好", subtitle: "兩個動作，之後就能在任何 App 裡切換到「知之」。")
+            CardTitle(step: "1 / 4 · 開始", title: "先把輸入法裝好", subtitle: "兩個動作，之後就能在任何 App 裡切換到「知之輸入法」。")
             row("安裝輸入法", done: model.installState != .notInstalled) {
                 if model.installState == .notInstalled { Button("安裝") { model.install() } }
             }
@@ -85,8 +85,18 @@ private struct SetupCard: View {
                     Button("開啟鍵盤設定") { model.openKeyboardSettings() }
                 }
             }
-            Text("加入後，用選單列的輸入法圖示，或 Control + 空白鍵，切換到「知之」。")
-                .font(.callout).foregroundStyle(.secondary).padding(.top, 14)
+            VStack(alignment: .leading, spacing: 6) {
+                Text("不知道怎麼加入？照這樣做：").font(.callout.weight(.medium))
+                Text("1. 按下面的「開啟鍵盤設定」\n2. 在「文字輸入」按「編輯…」，再按左下角的「＋」\n3. 選「中文（繁體）」，找到「知之輸入法」，按「加入」")
+                    .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                HStack {
+                    Button("開啟鍵盤設定") { model.openKeyboardSettings() }
+                    Link("看圖文教學", destination: URL(string: "https://zhizhi.jimmy-tools.com/#install")!)
+                }
+            }
+            .padding(.top, 14)
+            Text("加入後，用選單列的輸入法圖示，或 Control + 空白鍵，切換到「知之輸入法」。")
+                .font(.callout).foregroundStyle(.secondary).padding(.top, 12)
         }
     }
     private func row<Action: View>(_ title: String, done: Bool, @ViewBuilder action: () -> Action) -> some View {
