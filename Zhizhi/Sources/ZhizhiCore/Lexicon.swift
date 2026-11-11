@@ -33,18 +33,48 @@ public final class Lexicon {
 
     /// `tsv` rows are `word<TAB>log-prob<TAB>reading|reading`, syllables joined with "-".
     public func loadChinese(tsv: String) {
+        var rows: [(word: Substring, score: Float, readings: [Substring])] = []
+        // How often each character is read each way, taken from the multi-character words that hold it:
+        // 會 is ㄏㄨㄟˋ in 會議, 社會, 機會 and ㄎㄨㄞˋ only in 會計.
+        var seen: [Character: [Substring: Float]] = [:]
         for line in tsv.split(separator: "\n") {
             let f = line.split(separator: "\t")
             guard f.count >= 3, let score = Float(f[1]) else { continue }
-            if f[0].count > 1 { charactersInWords.formUnion(f[0]) }
-            for reading in f[2].split(separator: "|") {
-                insert(word: String(f[0]), score: score, syllables: reading.split(separator: "-"))
+            let readings = f[2].split(separator: "|")
+            rows.append((f[0], score, readings))
+            guard f[0].count > 1 else { continue }
+            charactersInWords.formUnion(f[0])
+            let weight = pow(10, score) / Float(readings.count)
+            for reading in readings {
+                let syllables = reading.split(separator: "-")
+                guard syllables.count == f[0].count else { continue }
+                for (character, syllable) in zip(f[0], syllables) { seen[character, default: [:]][syllable, default: 0] += weight }
+            }
+        }
+        for row in rows {
+            for (index, reading) in row.readings.enumerated() {
+                var score = row.score
+                // A character with several readings: each reading gets its share of the character's frequency,
+                // so a rare reading (會 as ㄎㄨㄞˋ) no longer outranks the common character of that sound (快).
+                if row.word.count == 1, row.readings.count > 1, let character = row.word.first {
+                    let counts = seen[character] ?? [:]
+                    // Used on its own (嗎, 和, 的) a character has its main reading, the first one listed.
+                    let alone = pow(10, row.score)
+                    let prior: Float = index == 0 ? alone : 1e-7
+                    let total = row.readings.enumerated().reduce(Float(0)) { $0 + (counts[$1.element] ?? 0) + ($1.offset == 0 ? alone : 1e-7) }
+                    let share = ((counts[reading] ?? 0) + prior) / total
+                    score += max(log10(share), Self.rareReadingFloor)
+                }
+                insert(word: String(row.word), score: score, syllables: reading.split(separator: "-"))
             }
         }
         for i in nodes.indices where nodes[i].entries.count > 1 {
             nodes[i].entries.sort { $0.score > $1.score }
         }
     }
+
+    /// The most a rare reading is pushed down (log10), so it can still be typed and picked.
+    static let rareReadingFloor: Float = -3
 
     /// `text` rows are `word<TAB>count` or `word`, most frequent first.
     public func loadEnglish(text: String, limit: Int = 120_000) {
