@@ -177,7 +177,8 @@ final class ZhizhiInputController: IMKInputController {
     private func syncCaps(_ event: NSEvent, client: Any!) {
         guard case .capsChanged(let on)? = Self.mode.syncCaps(event.modifierFlags.contains(.capsLock)) else { return }
         DebugLog.shared.record("caps=\(on)")
-        showModeTip(on ? "大寫" : "大寫關閉", client: client)
+        // Turning Caps off means going back to typing Chinese, so say that (or English, if English mode is still on).
+        showModeTip(on ? "大寫" : (Self.mode.englishMode ? "English" : "中文"), client: client)
     }
 
     private func showModeTip(_ text: String, client: Any!) {
