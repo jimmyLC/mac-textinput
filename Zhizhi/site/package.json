@@ -1,0 +1,10 @@
+{
+  "name": "zhizhi-website",
+  "private": true,
+  "scripts": {
+    "check": "node scripts/check.mjs",
+    "dev": "wrangler dev",
+    "deploy": "npm run check && wrangler deploy"
+  },
+  "devDependencies": { "wrangler": "^4" }
+}
