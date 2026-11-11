@@ -1,0 +1,23 @@
+name = "zhizhi-website"
+main = "worker.js"
+account_id = "d4783f0367eb11b6cde514f3ff9b725e"
+compatibility_date = "2026-10-17"
+workers_dev = false
+preview_urls = false
+routes = [
+  { pattern = "zhizhi.jimmy-tools.com", custom_domain = true }
+]
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = true
+not_found_handling = "404-page"
+
+[observability]
+enabled = false
+
+# Downloads: create the bucket once (`wrangler r2 bucket create zhizhi-releases`), then enable this.
+# [[r2_buckets]]
+# binding = "RELEASES"
+# bucket_name = "zhizhi-releases"
