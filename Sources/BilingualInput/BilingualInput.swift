@@ -32,6 +32,7 @@ final class BilingualInput {
     private var repairOffering = false // a tone fix is currently offered
     private var runWord = ""           // lowercase letters of the current English word
     private var runTyped = ""          // the same letters as typed (capitalisation kept)
+    private var runText = ""           // whole literal token, including punctuation/digits
     private var spellFix: (old: String, new: String)?   // correction offered for the word just finished
     private var previousRunEnglish = false
     private var englishMode = false    // persistent mode (Caps Lock or Shift tap)
@@ -81,9 +82,13 @@ final class BilingualInput {
     func install(analyzer built: BilingualAnalyzer) { lock.lock(); analyzer = built; lock.unlock() }
     func install(repair engine: PhraseRepair) { repairEngine = engine }
 
-    func reset() {
-        buffer = ""; englishRun = false; runWord = ""; shiftDown = false; modeLabel = nil
-        pending = ""; done = []
+    func reset(preservingMode: Bool = false, capsLock: Bool = false) {
+        buffer = ""; pending = ""; done = []
+        englishRun = false; runStarted = false; runPure = false
+        runWord = ""; runTyped = ""; runText = ""
+        spellFix = nil; previousRunEnglish = false; repairOffering = false
+        shiftDown = false; shiftClean = false; modeLabel = nil
+        if !preservingMode { englishMode = capsLock }
     }
 
     /// Follows the Zhuyin syllables typed so far so a wrong tone can be offered a fix.
@@ -127,13 +132,22 @@ final class BilingualInput {
     func takeRunStart() -> Bool { defer { runStarted = false }; return runStarted }
 
     private func startEnglish(_ ch: Character) {
+        startEnglish(String(ch))
+    }
+
+    private func startEnglish(_ text: String) {
         runStarted = true
         pending = ""; done = []
         englishRun = true
-        runPure = ch.isLetter
-        runWord = ch.isLetter ? String(ch).lowercased() : ""
-        runTyped = ch.isLetter ? String(ch) : ""
+        runText = text
+        updateRunWord()
         buffer = ""
+    }
+
+    private func updateRunWord() {
+        runPure = !runText.isEmpty && runText.allSatisfy { $0.isASCII && $0.isLetter }
+        runTyped = String(runText.reversed().prefix { $0.isASCII && $0.isLetter }.reversed())
+        runWord = runTyped.lowercased()
     }
 
     private func decideModifiers(_ event: NSEvent, composing: Bool) -> BilingualAction {
@@ -153,8 +167,7 @@ final class BilingualInput {
             guard shiftDown, shiftClean else { return .passThrough }
             if composing, !englishRun, let tail = letterTail(buffer), !tail.isEmpty {
                 // Shift while Zhuyin letters are pending: they were English after all.
-                startEnglish(tail.last!); runWord = tail; runTyped = tail
-                buffer = ""
+                startEnglish(tail)
                 return .beginEnglish(tail)
             }
             if englishRun, !englishMode {
@@ -253,7 +266,7 @@ final class BilingualInput {
         shiftClean = false
         let flags = event.modifierFlags
         if flags.contains(.command) || flags.contains(.control) || flags.contains(.option) {
-            reset(); return .passThrough
+            reset(preservingMode: true); return .passThrough
         }
         let offeredFix = spellFix
         if event.type == .keyDown { spellFix = nil }
@@ -261,7 +274,12 @@ final class BilingualInput {
             return .replaceTyped(old: fix.old, new: fix.new)
         }
         if event.keyCode == 51 {  // delete
-            if englishRun { if !runWord.isEmpty { runWord.removeLast(); runTyped.removeLast() }; return .passThrough }
+            if englishRun {
+                if !runText.isEmpty { runText.removeLast() }
+                updateRunWord()
+                if runText.isEmpty { reset(preservingMode: true) }
+                return .passThrough
+            }
             if !buffer.isEmpty { buffer.removeLast() }
             if !pending.isEmpty { pending.removeLast() } else if !done.isEmpty { done.removeLast() }
             return .passThrough
@@ -269,11 +287,10 @@ final class BilingualInput {
         if event.keyCode == 48, let word = currentCompletion(composing: composing) {  // Tab accepts the offer
             if englishRun {
                 let suffix = String(word.dropFirst(runWord.count))
-                runWord = word.lowercased(); runTyped += suffix
+                runText += suffix; updateRunWord()
                 return .insert(suffix)
             }
-            englishRun = true; runStarted = true; runWord = word.lowercased(); runTyped = word; buffer = ""
-            pending = ""; done = []
+            startEnglish(word)
             return .acceptOffer(word)
         }
         if event.keyCode == 48, let fix = currentRepair(composing: composing) {  // Tab applies the tone fix
@@ -281,13 +298,13 @@ final class BilingualInput {
         }
         guard let chars = event.characters, chars.count == 1, let scalar = chars.unicodeScalars.first,
               scalar.value >= 0x20, scalar.value < 0x7F else {
-            reset(); return .passThrough  // return, escape, arrows, tab, non-ASCII input
+            reset(preservingMode: true); return .passThrough  // return, escape, arrows, tab, non-ASCII input
         }
         let ch = chars.first!
 
         if englishRun {
             if Self.runCharacters.contains(ch) {
-                if ch.isLetter { runWord.append(Character(ch.lowercased())); runTyped.append(ch) } else { runWord = ""; runTyped = ""; runPure = false }
+                runText.append(ch); updateRunWord()
                 return .literal
             }
             learnEnglish(runWord)
@@ -310,7 +327,7 @@ final class BilingualInput {
         // "https:" and friends: English for the rest of the token.
         if ch == ":", composing, Self.urlSchemes.contains(letterTail(buffer) ?? "") {
             let scheme = letterTail(buffer)!
-            startEnglish(":")
+            startEnglish(scheme + ":")
             return .beginEnglish(scheme + ":")
         }
         if ch == " " {
@@ -324,8 +341,7 @@ final class BilingualInput {
         guard ch.isASCII, ch.isLowercase, let tail = letterTail(buffer) else { return .passThrough }
         lock.lock(); let analyzer = self.analyzer; lock.unlock()
         if analyzer?.startsEnglish(tail, previousRunEnglish: previousRunEnglish) == true {
-            englishRun = true; runStarted = true; runWord = tail; runTyped = tail; buffer = ""
-            pending = ""; done = []
+            startEnglish(tail)
             return .beginEnglish(tail)
         }
         return .passThrough

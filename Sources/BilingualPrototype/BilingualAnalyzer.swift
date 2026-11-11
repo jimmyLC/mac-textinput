@@ -112,9 +112,11 @@ extension BilingualAnalyzer {
     func startsEnglish(_ tail: String, previousRunEnglish: Bool) -> Bool {
         // Common words only: the word list also holds rare tokens ("su") that must not trigger English.
         guard tail.count >= 2, tail.allSatisfy({ $0.isASCII && $0.isLowercase }),
-              lexicon.isCommon(tail, top: tail.count == 2 ? 3_000 : 60_000) else { return false }
-        if tail.count >= 3 { return true }
-        return previousRunEnglish || (zhuyin.parse(tail) != .complete && !zhuyin.isSyllable(tail))
+              lexicon.isCommon(tail, top: tail.count == 2 ? 3_000 : 20_000) else { return false }
+        // A fresh Chinese run needs more than a short English word/abbreviation.
+        // Keep even reordered single syllables pending so the next tone key can finish them.
+        if previousRunEnglish { return true }
+        return tail.count >= 3 && !zhuyin.couldBeSyllable(tail)
     }
 }
 

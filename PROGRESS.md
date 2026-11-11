@@ -1,5 +1,11 @@
 # 開發進度與交接
 
+## 2026-11-11 review 修正分支
+
+`codex/fix-bilingual-recovery` 以 main `62ff443` 為基準，修正中文鍵序被過早當作英文、刪光英文仍卡住、非標準配置遭攔截、切換欄位殘留判斷、除錯記錄保留限制、詞典寫入失敗回報及還原身分驗證。行為取捨與測試說明見 [review 修正紀錄](docs/REVIEW-FIXES-2026-11-11.md)。以下舊交接內容保留作歷史，與新紀錄衝突時以此節為準。
+
+修正分支完整建置、ad-hoc 簽章與身分檢查已通過；`./scripts/test.sh` exit 0：130 個 XCTest、86 個 Swift Testing、既有五組 standalone 測試及新增 recovery／storage／update-safety 測試均通過；排除上游線上更新 API 測試。新增測試涵蓋 5,000 組中文讀音的逐鍵路由與恢復操作。沒有安裝新版，也沒有完成跨 App 實機驗收。
+
 更新日期：2026-11-02（新加坡時間）
 
 ## 目前狀態

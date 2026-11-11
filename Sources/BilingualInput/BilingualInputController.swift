@@ -4,6 +4,11 @@ import InputMethodKit
 extension McBopomofoInputMethodController {
     /// Returns nil when the IME should handle the event as usual.
     func bilingualHandle(_ event: NSEvent, client: Any!) -> Bool? {
+        guard Preferences.keyboardLayout == .standard, keyHandler.inputMode == .bopomofo else {
+            showBilingualTooltip(nil, client: client)
+            BilingualInput.shared.reset()
+            return nil
+        }
         let action = BilingualInput.shared.decide(event, composing: state is InputState.Inputting)
         if let label = BilingualInput.shared.modeLabel { showBilingualTooltip(label, client: client) }
         switch action {
@@ -31,9 +36,9 @@ extension McBopomofoInputMethodController {
             showBilingualTooltip(nil, client: client)
             return true
         case .replaceTyped(let old, let new):
-            replaceTyped(old: old, with: new, client: client)
+            let replaced = replaceTyped(old: old, with: new, client: client)
             showBilingualTooltip(nil, client: client)
-            return true
+            return replaced ? true : nil
         case .repair(let backspaces, let keys):
             showBilingualTooltip(nil, client: client)
             for _ in 0..<backspaces { sendKey("\u{7F}", keyCode: 51, client: client) }
@@ -65,19 +70,21 @@ extension McBopomofoInputMethodController {
 
     /// Called after the IME handled a key itself: show the English offer beside the Zhuyin.
     func bilingualAfterKey(client: Any!) {
+        guard Preferences.keyboardLayout == .standard, keyHandler.inputMode == .bopomofo else { return }
         showCompletion(client: client)
     }
 
     /// Replaces the text just before the caret when it is exactly `old` (checked first, so
     /// apps that do not report their text are left untouched).
-    private func replaceTyped(old: String, with new: String, client: Any!) {
-        guard let text = client as? IMKTextInput else { return }
+    private func replaceTyped(old: String, with new: String, client: Any!) -> Bool {
+        guard let text = client as? IMKTextInput else { return false }
         let caret = text.selectedRange()
         let length = (old as NSString).length
-        guard caret.location != NSNotFound, caret.location >= length else { return }
+        guard caret.location != NSNotFound, caret.location >= length else { return false }
         let range = NSRange(location: caret.location - length, length: length)
-        guard text.attributedSubstring(from: range)?.string == old else { return }
+        guard text.attributedSubstring(from: range)?.string == old else { return false }
         text.insertText(new, replacementRange: range)
+        return true
     }
 
     /// Feeds a key through the normal handler, as if typed (used to retype fixed syllables).

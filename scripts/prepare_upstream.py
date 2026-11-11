@@ -61,7 +61,9 @@ def install_shadow_observer():
     pbx.write_text(text)
     controller = source / 'InputMethodController.swift'
     replace(controller, '        keyHandler.clear()\n        keyHandler.syncWithPreferences()\n',
-            '        keyHandler.clear()\n        BilingualInput.shared.reset()\n        keyHandler.syncWithPreferences()\n')
+            '        keyHandler.clear()\n        BilingualInput.shared.reset(capsLock: NSEvent.modifierFlags.contains(.capsLock))\n        keyHandler.syncWithPreferences()\n')
+    replace(controller, '    override func deactivateServer(_ client: Any!) {\n        currentClient = nil\n',
+            '    override func deactivateServer(_ client: Any!) {\n        showBilingualTooltip(nil, client: client)\n        BilingualInput.shared.reset()\n        currentClient = nil\n')
     replace(controller, '    override func handle(_ maybeEvent: NSEvent!, client: Any!) -> Bool {\n        // nil may be passed, applefeedback://FB11472618\n        guard let event = maybeEvent else {\n            commitComposition(client)\n            return false\n        }\n',
             '    override func handle(_ maybeEvent: NSEvent!, client: Any!) -> Bool {\n        // nil may be passed, applefeedback://FB11472618\n        guard let event = maybeEvent else {\n            commitComposition(client)\n            return false\n        }\n        if let handled = bilingualHandle(event, client: client) { return handled }\n')
     # Show Traditional Chinese UI regardless of the system language order (this app only).

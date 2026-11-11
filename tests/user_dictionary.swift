@@ -18,7 +18,7 @@ do { try ud.add(word: "MyJAV", reading: nil); check(false, "duplicate rejected")
 do { try ud.add(word: "Claude Code", reading: nil); check(false, "space rejected") } catch UserDictionaryError.invalidEnglish {} catch { check(false, "wrong error") }
 do { try ud.add(word: "稀有字", reading: nil); check(false, "missing reading") } catch UserDictionaryError.missingReading {} catch { check(false, "wrong error") }
 check(UserDictionary(file: file).entries.count == 2, "persisted")
-ud.remove(word: "亞東")
+try! ud.remove(word: "亞東")
 check(UserDictionary(file: file).entries.map { $0.word } == ["MyJAV"], "removed and persisted")
 
 let lex = EnglishLexicon(words: ["the", "myself", "myth"], user: ["MyJAV"])

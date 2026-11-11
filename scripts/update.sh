@@ -27,6 +27,7 @@ else
   [[ -d "$source_app" ]] || { echo 'Build first: ./scripts/build.sh' >&2; exit 1; }
   python3 "$ROOT/scripts/check_build.py"
 fi
+python3 "$ROOT/scripts/check_bundle_identity.py" "$new_app"
 codesign --verify --deep --strict "$new_app"
 [[ -d "$target" ]] || { echo "Nothing installed at $target; use ./scripts/install.sh for a first install." >&2; exit 1; }
 
@@ -39,6 +40,7 @@ echo "Backup: $backup"
 stage="$(mktemp -d "$target_dir/.zhuyinlm-update.XXXXXXXX")"
 trap 'rm -rf "$stage"' EXIT
 /usr/bin/ditto "$new_app" "$stage/ZhuyinLM.app"
+python3 "$ROOT/scripts/check_bundle_identity.py" "$stage/ZhuyinLM.app"
 codesign --verify --deep --strict "$stage/ZhuyinLM.app"
 
 # Stop only this app's running process so the next key press launches the new build.

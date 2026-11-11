@@ -120,19 +120,23 @@ final class UserDictionaryWindowController: NSWindowController, NSTableViewDataS
         } catch UserDictionaryError.duplicate {
             message.stringValue = "這個詞已經在詞典裡"
         } catch {
-            message.stringValue = "加入失敗"
+            message.stringValue = "儲存失敗，詞彙尚未加入：\(error.localizedDescription)"
         }
     }
 
     @objc private func removeSelected() {
         let removed = table.selectedRowIndexes.map { store.entries[$0] }
-        for entry in removed {
-            store.remove(word: entry.word)
-            if entry.reading != nil { ChinesePhraseFile.remove(entry.word) }
-            if entry.auto == true { LearningStore.shared.block(entry.word.lowercased()) }
+        do {
+            for entry in removed {
+                try store.remove(word: entry.word)
+                if entry.reading != nil { ChinesePhraseFile.remove(entry.word) }
+                if entry.auto == true { LearningStore.shared.block(entry.word.lowercased()) }
+            }
+            message.stringValue = removed.isEmpty ? "請先選取要刪除的詞" : "已刪除 \(removed.count) 個詞"
+        } catch {
+            message.stringValue = "刪除未完成：\(error.localizedDescription)"
         }
         BilingualInput.shared.reloadUserWords()
-        message.stringValue = removed.isEmpty ? "請先選取要刪除的詞" : "已刪除 \(removed.count) 個詞"
         table.reloadData()
     }
 

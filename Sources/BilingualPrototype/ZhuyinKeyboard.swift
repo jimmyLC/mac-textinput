@@ -65,6 +65,26 @@ struct ZhuyinSyllableIndex {
         return !keys.isEmpty && symbols.count == keys.count && syllables.contains(String(symbols))
     }
 
+    /// A pending syllable may be typed out of order (e.g. `url` -> ㄐㄧㄠ).
+    /// Preserve it until a tone or an explicit English choice disambiguates it.
+    func couldBeSyllable(_ keys: String) -> Bool {
+        guard !keys.isEmpty else { return false }
+        var groups: [Int: Character] = [:]
+        for key in keys {
+            guard let symbol = ZhuyinKeyboard.keyMap[key] else { return false }
+            let group: Int
+            if "ㄅㄆㄇㄈㄉㄊㄋㄌㄍㄎㄏㄐㄑㄒㄓㄔㄕㄖㄗㄘㄙ".contains(symbol) { group = 0 }
+            else if "ㄧㄨㄩ".contains(symbol) { group = 1 }
+            else if "ㄚㄛㄜㄝㄞㄟㄠㄡㄢㄣㄤㄥㄦ".contains(symbol) { group = 2 }
+            else { return false }
+            // Repeated groups are more likely an English word than one pending syllable.
+            guard groups[group] == nil else { return false }
+            groups[group] = symbol
+        }
+        let symbols = String((0...2).compactMap { groups[$0] })
+        return syllables.contains(symbols) || syllablePrefixes.contains(symbols)
+    }
+
     func parse(_ keys: String) -> ZhuyinParse {
         guard !keys.isEmpty else { return .invalid }
         var symbols: [Character] = []

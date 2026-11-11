@@ -3,11 +3,11 @@
 from pathlib import Path
 import plistlib
 import sys
+from check_bundle_identity import check_identity
 
 root = Path(__file__).resolve().parents[1]
 app = root / '.build/products/ZhuyinLM.app'
-with (app / 'Contents/Info.plist').open('rb') as f:
-    info = plistlib.load(f)
+info = check_identity(app)
 identity = 'com.jimmylc.inputmethod.ZhuyinLM'
 assert info['CFBundleIdentifier'] == identity
 assert info['TISInputSourceID'] == identity

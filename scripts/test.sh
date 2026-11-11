@@ -7,6 +7,7 @@ if [[ ! -d "$ROOT/.build/McBopomofo/McBopomofo.xcodeproj" ]]; then
 fi
 python3 "$ROOT/scripts/check_build.py"
 python3 "$ROOT/scripts/check_english_dict.py"
+python3 "$ROOT/tests/update_safety.py"
 # The upstream update API test requires a live network service and is unrelated
 # to the input engine. Run it separately when checking upstream update services.
 xcodebuild -project "$ROOT/.build/McBopomofo/McBopomofo.xcodeproj" \
@@ -17,15 +18,21 @@ xcodebuild -project "$ROOT/.build/McBopomofo/McBopomofo.xcodeproj" \
 # Bilingual analyzer and key router, tested standalone on real data (the router is
 # also compiled into the app by prepare_upstream.py).
 BIN="$(mktemp -d)"
+trap 'rm -rf "$BIN"' EXIT
 PROTO=("$ROOT"/Sources/BilingualPrototype/*.swift)
+STORE=("$ROOT/Sources/BilingualInput/UserDictionary.swift" "$ROOT/Sources/BilingualInput/LearningStore.swift" "$ROOT/Sources/BilingualInput/DebugLog.swift" "$ROOT/Sources/BilingualInput/ScriptSpacing.swift")
+ROUTER=("${STORE[@]}" "$ROOT/Sources/BilingualInput/BilingualInput.swift" "$ROOT/Sources/BilingualInput/PhraseRepair.swift")
 swiftc "${PROTO[@]}" "$ROOT/tests/bilingual_resolver.swift" -o "$BIN/resolver"
 swiftc "${PROTO[@]}" "$ROOT/Sources/BilingualInput/UserDictionary.swift" "$ROOT/Sources/BilingualInput/LearningStore.swift" "$ROOT/Sources/BilingualInput/DebugLog.swift" "$ROOT/Sources/BilingualInput/ScriptSpacing.swift" "$ROOT/tests/user_dictionary.swift" -o "$BIN/userdict"
 swiftc "${PROTO[@]}" "$ROOT/Sources/BilingualInput/PhraseRepair.swift" "$ROOT/tests/phrase_repair.swift" -o "$BIN/repair"
 swiftc "${PROTO[@]}" "$ROOT/tests/bilingual_analyzer.swift" -o "$BIN/analyzer"
 swiftc "${PROTO[@]}" "$ROOT/Sources/BilingualInput/BilingualInput.swift" "$ROOT/Sources/BilingualInput/UserDictionary.swift" "$ROOT/Sources/BilingualInput/PhraseRepair.swift" "$ROOT/Sources/BilingualInput/LearningStore.swift" "$ROOT/Sources/BilingualInput/DebugLog.swift" "$ROOT/Sources/BilingualInput/ScriptSpacing.swift" "$ROOT/tests/bilingual_routing.swift" -o "$BIN/routing"
+swiftc "${PROTO[@]}" "${ROUTER[@]}" "$ROOT/tests/bilingual_recovery.swift" -o "$BIN/recovery"
+swiftc "${PROTO[@]}" "${STORE[@]}" "$ROOT/tests/storage_safety.swift" -o "$BIN/storage"
 "$BIN/resolver"
 "$BIN/userdict"
 "$BIN/repair" "$ROOT"
 "$BIN/analyzer" "$ROOT"
 "$BIN/routing" "$ROOT"
-rm -rf "$BIN"
+"$BIN/recovery" "$ROOT"
+"$BIN/storage"

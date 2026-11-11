@@ -56,18 +56,17 @@ final class UserDictionary {
             entry = UserDictionaryEntry(word: word, reading: reading.replacingOccurrences(of: " ", with: "-"))
         }
         guard !entries.contains(where: { $0.word == entry.word }) else { throw UserDictionaryError.duplicate }
-        entries.append(entry)
-        save()
+        try save(entries + [entry])
         return entry
     }
 
-    func remove(word: String) {
-        entries.removeAll { $0.word == word }
-        save()
+    func remove(word: String) throws {
+        try save(entries.filter { $0.word != word })
     }
 
-    private func save() {
-        try? FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
-        if let data = try? JSONEncoder().encode(entries) { try? data.write(to: file, options: .atomic) }
+    private func save(_ updated: [UserDictionaryEntry]) throws {
+        try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try JSONEncoder().encode(updated).write(to: file, options: .atomic)
+        entries = updated
     }
 }
