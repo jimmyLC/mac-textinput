@@ -14,7 +14,15 @@ let lexicon = Lexicon()
 lexicon.loadChinese(tsv: read(root + "/data/chinese-lexicon.tsv"))
 lexicon.loadEnglish(text: read(root + "/data/english-words.txt"))
 print(String(format: "lexicon loaded in %.2f s", Date().timeIntervalSince(loadStart)))
+if ProcessInfo.processInfo.environment["ZHIZHI_NO_PAIRS"] == nil {
+    let pairStart = Date()
+    lexicon.loadPairs(tsv: read(root + "/data/chinese-bigrams.tsv"))
+    print(String(format: "word pairs loaded in %.2f s", Date().timeIntervalSince(pairStart)))
+}
 let decoder = Decoder(lexicon: lexicon)
+if let w = ProcessInfo.processInfo.environment["ZHIZHI_PAIR_WEIGHT"].flatMap(Float.init) { decoder.costs.pairWeight = w }
+if let l = ProcessInfo.processInfo.environment["ZHIZHI_PAIR_LIMIT"].flatMap(Float.init) { decoder.costs.pairLimit = l }
+if let k = ProcessInfo.processInfo.environment["ZHIZHI_WORDS_PER_SPAN"].flatMap(Int.init) { decoder.costs.wordsPerSpan = k }
 
 let equivalent: [Character: Character] = ["她": "他", "它": "他", "牠": "他", "儘": "盡", "覆": "復", "複": "復", "週": "周"]
 func normalized(_ s: String) -> String { String(s.map { equivalent[$0] ?? $0 }) }
@@ -25,6 +33,10 @@ func percentile(_ values: [Double], _ p: Double) -> Double {
 }
 
 switch args[2] {
+case "pairs":
+    // zhizhi-eval <root> pairs <out file>: the word pairs as the binary block the input method loads.
+    try! lexicon.pairData.write(to: URL(fileURLWithPath: args[3]))
+    print("wrote \(lexicon.pairData.count) bytes to \(args[3])")
 case "sentences":
     struct Row: Decodable { let gold: String; let syllables: [String] }
     let path = args.count > 3 ? args[3] : root + "/eval/baseline.json"

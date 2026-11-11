@@ -30,6 +30,10 @@ final class Engine {
         if let english = try? String(contentsOf: resources.appendingPathComponent("english-words.txt"), encoding: .utf8) {
             lexicon.loadEnglish(text: english)
         }
+        // Which word usually follows which: lets the decoder choose 份 after 這. Typing works without the file.
+        if let pairs = try? Data(contentsOf: resources.appendingPathComponent("chinese-pairs.bin"), options: .mappedIfSafe) {
+            lexicon.loadPairs(data: pairs)
+        }
         let state = (try? Data(contentsOf: paths.learning)).flatMap { try? JSONDecoder().decode(Learner.State.self, from: $0) }
         let learner = Learner(lexicon: lexicon, dictionary: paths.loadDictionary(), state: state ?? Learner.State())
         learner.onChange = { [weak self] in self?.scheduleSave() }

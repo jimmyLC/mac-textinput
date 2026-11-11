@@ -57,6 +57,10 @@ public final class Decoder {
         public var strayLetter: Float = 12.0          // a mistyped letter next to real text
         public var literalPunctuation: Float = 14.0
         public var space: Float = 0.5
+        public var pairWeight: Float = 0.15           // how much a word pair counts against the word alone (0 = off)
+        public var pairLimit: Float = 2.0             // the most a pair may lower a word's cost: it settles close calls only
+        public var beam: Float = 18.0                 // readings this much worse than the best so far are dropped
+        public var wordsPerSpan = 5                   // same-sound words kept per stretch of keys, for pairs to choose among
         public var listMarker: Float = 2.0            // "2." at the start of a line or after a space, as in a numbered list
         public init() {}
     }
@@ -80,6 +84,18 @@ public final class Decoder {
         var cost: Float
         var keepsLanguage = false   // spaces and punctuation do not change the language context
         var syllableEnds: [Int] = []
+        var word: UInt32 = 0        // Chinese words: id for word-pair lookups; 0 for everything else
+        var score: Float = 0        // Chinese words: the lexicon score (log10 probability) behind `cost`
+    }
+
+    /// One way to have read the keys up to a position: its cost, the language and the last Chinese word.
+    private struct State {
+        var cost: Float
+        var context: Int
+        var word: UInt32
+        var previousPosition: Int32
+        var previousState: Int32
+        var edge: Int32
     }
 
     private struct Span { var end: Int; var base: UInt16; var tone: UInt8 }
@@ -104,10 +120,6 @@ public final class Decoder {
         let n = keys.count
         guard n > 0 else { return [] }
         let kinds = 3   // language context: chinese, english, none
-        var best = [Float](repeating: .infinity, count: (n + 1) * kinds)
-        var back = [(prev: Int32, prevContext: Int8, edge: Int32)](repeating: (-1, -1, -1), count: (n + 1) * kinds)
-        best[leading == .pending ? Segment.Kind.chinese.rawValue : leading.rawValue] = 0
-
         var fixedAt = [Constraint?](repeating: nil, count: n)
         for c in constraints { for i in c.range where i < n { fixedAt[i] = c } }
         var spans = (0..<n).map { syllableSpans(keys, from: $0) }
@@ -127,45 +139,70 @@ public final class Decoder {
             for i in 0..<n { spans[i].removeAll { span in (i..<span.end).contains { percentDigit[$0] } } }
         }
 
+        // Every way to reach each position, one per (language, last Chinese word): the last word lets
+        // the next one be chosen by what usually follows it ("這" then "份", not "分").
+        var states = [[State]](repeating: [], count: n + 1)
+        states[0] = [State(cost: 0, context: leading == .pending ? Segment.Kind.chinese.rawValue : leading.rawValue,
+                           word: 0, previousPosition: -1, previousState: -1, edge: -1)]
         var edgeStore: [Edge] = []
-        edgeStore.reserveCapacity(n * 8)
+        edgeStore.reserveCapacity(n * 12)
 
-        for i in 0..<n {
-            for ctx in 0..<kinds where best[i * kinds + ctx] < .infinity {
-                let base = best[i * kinds + ctx]
-                let previous = Segment.Kind(rawValue: ctx)!
-                for edge in edges(from: i, keys: keys, spans: spans, context: previous, fixedAt: fixedAt) {
-                    var cost = base + edge.cost
+        for i in 0..<n where !states[i].isEmpty {
+            let floor = states[i].reduce(Float.infinity) { min($0, $1.cost) } + costs.beam
+            var edgesFor = [[Int32]?](repeating: nil, count: kinds)
+            for (index, state) in states[i].enumerated() where state.cost <= floor {
+                let previous = Segment.Kind(rawValue: state.context)!
+                if edgesFor[state.context] == nil {
+                    var list: [Int32] = []
+                    for edge in edges(from: i, keys: keys, spans: spans, context: previous, fixedAt: fixedAt) {
+                        edgeStore.append(edge)
+                        list.append(Int32(edgeStore.count - 1))
+                    }
+                    edgesFor[state.context] = list
+                }
+                for edgeIndex in edgesFor[state.context]! {
+                    let edge = edgeStore[Int(edgeIndex)]
+                    var cost = state.cost + edge.cost
+                    if edge.word != 0, state.word != 0, let pair = lexicon.pairScore(state.word, edge.word) {
+                        cost -= pairGain(pair: pair, alone: edge.score)
+                    }
                     let language = edge.kind == .pending ? Segment.Kind.chinese : edge.kind
                     var next = previous
                     if !edge.keepsLanguage {
                         if previous != .other, previous != language { cost += costs.languageSwitch }
                         next = language
                     }
-                    let slot = edge.end * kinds + next.rawValue
-                    if cost < best[slot] {
-                        best[slot] = cost
-                        edgeStore.append(edge)
-                        back[slot] = (Int32(i), Int8(ctx), Int32(edgeStore.count - 1))
+                    let candidate = State(cost: cost, context: next.rawValue, word: edge.word,
+                                          previousPosition: Int32(i), previousState: Int32(index), edge: edgeIndex)
+                    if let same = states[edge.end].firstIndex(where: { $0.context == candidate.context && $0.word == candidate.word }) {
+                        if cost < states[edge.end][same].cost { states[edge.end][same] = candidate }
+                    } else {
+                        states[edge.end].append(candidate)
                     }
                 }
             }
         }
 
-        var ctx = 0
-        for c in 1..<kinds where best[n * kinds + c] < best[n * kinds + ctx] { ctx = c }
-        guard best[n * kinds + ctx] < .infinity else { return [Segment(kind: .other, range: 0..<n, text: String(keys))] }
-
+        guard var at = states[n].indices.min(by: { states[n][$0].cost < states[n][$1].cost }) else {
+            return [Segment(kind: .other, range: 0..<n, text: String(keys))]
+        }
         var result: [Segment] = []
         var pos = n
         while pos > 0 {
-            let b = back[pos * kinds + ctx]
-            let e = edgeStore[Int(b.edge)]
-            result.append(Segment(kind: e.kind, range: Int(b.prev)..<pos, text: e.text, syllableEnds: e.syllableEnds))
-            pos = Int(b.prev)
-            ctx = Int(b.prevContext)
+            let state = states[pos][at]
+            let e = edgeStore[Int(state.edge)]
+            result.append(Segment(kind: e.kind, range: Int(state.previousPosition)..<pos, text: e.text, syllableEnds: e.syllableEnds))
+            pos = Int(state.previousPosition)
+            at = Int(state.previousState)
         }
         return Self.dropStrayLetters(result.reversed())
+    }
+
+    /// How much cheaper a word gets after the word before it: mixes the pair's probability with the word's own.
+    private func pairGain(pair: Float, alone: Float) -> Float {
+        let w = costs.pairWeight
+        guard w > 0 else { return 0 }
+        return min(costs.pairLimit, max(0, log10(1 + w / (1 - w) * pow(10, pair - alone))))
     }
 
     /// A single lowercase letter that nothing could read, standing between Chinese words ("沒c反應"),
@@ -391,7 +428,8 @@ public final class Decoder {
     private func edges(from i: Int, keys: [Character], spans: [[Span]], context: Segment.Kind, fixedAt: [Constraint?]) -> [Edge] {
         if let fixed = fixedAt[i], case .text(let text, let kind) = fixed.fix {
             guard fixed.range.lowerBound == i else { return [] }
-            return [Edge(end: fixed.range.upperBound, kind: kind, text: text, cost: 0, syllableEnds: fixed.syllableEnds.map { $0 + i })]
+            return [Edge(end: fixed.range.upperBound, kind: kind, text: text, cost: 0, syllableEnds: fixed.syllableEnds.map { $0 + i },
+                         word: kind == .chinese ? Lexicon.wordID(text) : 0)]
         }
         var out: [Edge] = []
         chineseEdges(from: i, keys: keys, spans: spans, into: &out)
@@ -416,9 +454,10 @@ public final class Decoder {
     }
 
     private func chineseEdges(from start: Int, keys: [Character], spans: [[Span]], into out: inout [Edge]) {
-        var bestByEnd: [Int: (cost: Float, word: String, ends: [Int])] = [:]
+        var bestByEnd: [Int: [(cost: Float, word: String, ends: [Int], score: Float)]] = [:]
         var typed: [UInt8] = []
         var ends: [Int] = []
+        let keep = lexicon.hasPairs ? max(1, costs.wordsPerSpan) : 1
 
         func walk(node: Int, at pos: Int) {
             guard pos < keys.count, typed.count < 8 else { return }
@@ -430,7 +469,16 @@ public final class Decoder {
                     guard let penalty = tonePenalty(typed: typed, entry: entry.tones) else { continue }
                     if typed.contains(Zhuyin.Tone.none), entry.score < costs.tonelessMinScore { continue }
                     let cost = -entry.score + penalty
-                    if cost < bestByEnd[span.end]?.cost ?? .infinity { bestByEnd[span.end] = (cost, entry.word, ends) }
+                    var list = bestByEnd[span.end] ?? []
+                    if list.count == keep, cost >= list[list.count - 1].cost { continue }
+                    if let same = list.firstIndex(where: { $0.word == entry.word }) {
+                        if cost >= list[same].cost { continue }
+                        list.remove(at: same)
+                    }
+                    let at = list.firstIndex(where: { cost < $0.cost }) ?? list.count
+                    list.insert((cost, entry.word, ends, entry.score), at: at)
+                    if list.count > keep { list.removeLast() }
+                    bestByEnd[span.end] = list
                 }
                 walk(node: Int(child), at: span.end)
                 typed.removeLast()
@@ -438,7 +486,12 @@ public final class Decoder {
             }
         }
         walk(node: 0, at: start)
-        for (end, best) in bestByEnd { out.append(Edge(end: end, kind: .chinese, text: best.word, cost: best.cost, syllableEnds: best.ends)) }
+        for (end, list) in bestByEnd {
+            for best in list {
+                out.append(Edge(end: end, kind: .chinese, text: best.word, cost: best.cost, syllableEnds: best.ends,
+                                word: Lexicon.wordID(best.word), score: best.score))
+            }
+        }
     }
 
     /// Extra cost of reading `entry` from the typed tones, nil when not allowed.

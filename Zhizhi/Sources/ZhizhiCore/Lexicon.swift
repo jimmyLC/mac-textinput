@@ -21,6 +21,9 @@ public final class Lexicon {
     private(set) var userEntries: [UserEntry] = []
     private(set) var charactersInWords: Set<Character> = []
     private var originalScores: [String: Float] = [:]     // word + reading, before any boost
+    private var pairKeys: [UInt64] = []                   // sorted: first word's id << 32 | second word's id
+    private var pairScores: [Float] = []                  // log10 P(second | first), same order
+    var hasPairs: Bool { !pairKeys.isEmpty }
 
     /// A personal-dictionary entry offered by Tab: starts with English letters or Chinese syllables.
     struct UserEntry {
@@ -75,6 +78,65 @@ public final class Lexicon {
 
     /// The most a rare reading is pushed down (log10), so it can still be typed and picked.
     static let rareReadingFloor: Float = -3
+
+    // MARK: - Word pairs
+
+    /// A stable 32-bit id for a word (FNV-1a over UTF-8); never 0.
+    static func wordID(_ word: String) -> UInt32 {
+        var hash: UInt32 = 2_166_136_261
+        for byte in word.utf8 { hash = (hash ^ UInt32(byte)) &* 16_777_619 }
+        return hash == 0 ? 1 : hash
+    }
+
+    /// log10 P(second | first) when the pair was seen often enough to be kept.
+    func pairScore(_ first: UInt32, _ second: UInt32) -> Float? {
+        let key = UInt64(first) << 32 | UInt64(second)
+        var low = 0, high = pairKeys.count
+        while low < high {
+            let mid = (low + high) / 2
+            if pairKeys[mid] < key { low = mid + 1 } else { high = mid }
+        }
+        return low < pairKeys.count && pairKeys[low] == key ? pairScores[low] : nil
+    }
+
+    /// `tsv` rows are `first<TAB>second<TAB>count`.
+    public func loadPairs(tsv: String) {
+        var rows: [(UInt64, Float, UInt32)] = []
+        var after: [UInt32: Float] = [:]      // how often each word was seen with any word after it
+        rows.reserveCapacity(1_600_000)
+        for line in tsv.split(separator: "\n") {
+            let f = line.split(separator: "\t")
+            guard f.count >= 3, let count = Float(f[2]) else { continue }
+            let first = Self.wordID(String(f[0])), second = Self.wordID(String(f[1]))
+            rows.append((UInt64(first) << 32 | UInt64(second), count, first))
+            after[first, default: 0] += count
+        }
+        rows.sort { $0.0 < $1.0 }
+        pairKeys = rows.map { $0.0 }
+        pairScores = rows.map { log10($0.1 / after[$0.2]!) }
+    }
+
+    /// The pairs as one block of bytes: a count, the keys, the scores. Loads in a blink.
+    public var pairData: Data {
+        var data = Data()
+        var count = UInt64(pairKeys.count)
+        withUnsafeBytes(of: &count) { data.append(contentsOf: $0) }
+        pairKeys.withUnsafeBytes { data.append(contentsOf: $0) }
+        pairScores.withUnsafeBytes { data.append(contentsOf: $0) }
+        return data
+    }
+
+    public func loadPairs(data: Data) {
+        guard data.count >= 8 else { return }
+        let count = Int(data.withUnsafeBytes { $0.loadUnaligned(as: UInt64.self) })
+        guard count > 0, data.count == 8 + count * 12 else { return }
+        pairKeys = [UInt64](repeating: 0, count: count)
+        pairScores = [Float](repeating: 0, count: count)
+        data.withUnsafeBytes { raw in
+            pairKeys.withUnsafeMutableBytes { $0.copyMemory(from: UnsafeRawBufferPointer(rebasing: raw[8..<(8 + count * 8)])) }
+            pairScores.withUnsafeMutableBytes { $0.copyMemory(from: UnsafeRawBufferPointer(rebasing: raw[(8 + count * 8)...])) }
+        }
+    }
 
     /// `text` rows are `word<TAB>count` or `word`, most frequent first.
     public func loadEnglish(text: String, limit: Int = 120_000) {
