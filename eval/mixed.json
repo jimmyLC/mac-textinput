@@ -1,0 +1,242 @@
+[
+{
+"gold": "我昨天用 claude 寫 code",
+"keys": "ji3yji6wu0 m/4claudevu,3code"
+},
+{
+"gold": "幫我開 chrome 看一下",
+"keys": "1; ji3d9 chromed04u6vu84"
+},
+{
+"gold": "這個 bug 已經修好了",
+"keys": "5k4ek7bugu3ru/ vu. cl3xk7"
+},
+{
+"gold": "請把 file 傳給我",
+"keys": "fu/3183filetj06eo3ji3"
+},
+{
+"gold": "今天的 meeting 改到下午",
+"keys": "rup wu0 2k7meetinge932l4vu84j3"
+},
+{
+"gold": "我要更新 github 的 repo",
+"keys": "ji3ul4e/ vup github2k7repo"
+},
+{
+"gold": "這個 api 回傳錯誤",
+"keys": "5k4ek7apicjo6tj06hji4j4"
+},
+{
+"gold": "你有看到 email 嗎",
+"keys": "su3u.3d042l4emaila8 "
+},
+{
+"gold": "下週要跟 client 開會",
+"keys": "vu845. ul4ep clientd9 cjo4"
+},
+{
+"gold": "這個 feature 什麼時候上線",
+"keys": "5k4ek7featuregk6ai7g6c.4g;4vu04"
+},
+{
+"gold": "麻煩 review 一下我的 code",
+"keys": "a86z06reviewu vu84ji32k7code"
+},
+{
+"gold": "deploy 之後網站壞了",
+"keys": "deploy5 c.4j;3504cj94xk7"
+},
+{
+"gold": "我用 python 寫了一個 script",
+"keys": "ji3m/4pythonvu,3xk7u ek7script"
+},
+{
+"gold": "資料放在 google drive 裡",
+"keys": "y xul4z;4y94google drivexu3"
+},
+{
+"gold": "google ads 的預算要調整",
+"keys": "google ads2k7m4nj04ul4wul65/3"
+},
+{
+"gold": "facebook 廣告的成效不錯",
+"keys": "facebookej;3el42k7t/6vul41j6hji4"
+},
+{
+"gold": "這支影片放到 youtube 上",
+"keys": "5k45 u/3qu04z;42l4youtubeg;4"
+},
+{
+"gold": "我的 iphone 沒電了",
+"keys": "ji32k7iphoneao62u04xk7"
+},
+{
+"gold": "macbook 的鍵盤很好打",
+"keys": "macbook2k7ru04q06cp3cl3283"
+},
+{
+"gold": "line 上面傳給你了",
+"keys": "lineg;4au04tj06eo3su3xk7"
+},
+{
+"gold": "這個 app 很好用",
+"keys": "5k4ek7appcp3cl3m/4"
+},
+{
+"gold": "請打開 terminal 輸入指令",
+"keys": "fu/3283d9 terminalgj bj453xu/4"
+},
+{
+"gold": "這個 function 要重寫",
+"keys": "5k4ek7functionul4tj/6vu,3"
+},
+{
+"gold": "我想買 apple 的股票",
+"keys": "ji3vu;3a93apple2k7ej3qul4"
+},
+{
+"gold": "今天的 report 寫好了",
+"keys": "rup wu0 2k7reportvu,3cl3xk7"
+},
+{
+"gold": "hello 大家好",
+"keys": "hello284ru8 cl3"
+},
+{
+"gold": "ok 沒問題",
+"keys": "okao6jp4wu6"
+},
+{
+"gold": "thanks 你幫了大忙",
+"keys": "thankssu31; xk7284a;6"
+},
+{
+"gold": "sorry 我晚點到",
+"keys": "sorryji3j032u032l4"
+},
+{
+"gold": "good morning 大家早安",
+"keys": "good morning284ru8 yl30 "
+},
+{
+"gold": "這個 price 太貴了",
+"keys": "5k4ek7pricew94ejo4xk7"
+},
+{
+"gold": "我們的 target 是年輕人",
+"keys": "ji3ap62k7targetg4su06fu/ bp6"
+},
+{
+"gold": "這份 excel 要整理一下",
+"keys": "5k4zp4excelul45/3xu3u vu84"
+},
+{
+"gold": "把 pdf 寄到我的信箱",
+"keys": "183pdfru42l4ji32k7vup4vu; "
+},
+{
+"gold": "用 photoshop 修一下圖",
+"keys": "m/4photoshopvu. u vu84wj6"
+},
+{
+"gold": "這個 design 看起來不錯",
+"keys": "5k4ek7designd04fu3x961j6hji4"
+},
+{
+"gold": "我在 starbucks 等你",
+"keys": "ji3y94starbucks2/3su3"
+},
+{
+"gold": "週末去 costco 買東西",
+"keys": "5. ai4fm4costcoa932j/ vu "
+},
+{
+"gold": "netflix 最近有什麼好看的",
+"keys": "netflixyjo4rup4u.3gk6ai7cl3d042k7"
+},
+{
+"gold": "我的 password 忘記了",
+"keys": "ji32k7passwordj;4ru4xk7"
+},
+{
+"gold": "wifi 又斷線了",
+"keys": "wifiu.42j04vu04xk7"
+},
+{
+"gold": "請重新 login 一次",
+"keys": "fu/3tj/6vup loginu h4"
+},
+{
+"gold": "這個 server 掛了",
+"keys": "5k4ek7serverej84xk7"
+},
+{
+"gold": "database 要備份",
+"keys": "databaseul41o4zp4"
+},
+{
+"gold": "javascript 真的很難寫",
+"keys": "javascript5p 2k7cp3s06vu,3"
+},
+{
+"gold": "swift 是蘋果的語言",
+"keys": "swiftg4qu/6eji32k7m3u06"
+},
+{
+"gold": "這個 model 跑得很慢",
+"keys": "5k4ek7modelql32k7cp3a04"
+},
+{
+"gold": "training 需要很多時間",
+"keys": "trainingvm ul4cp32ji g6ru0 "
+},
+{
+"gold": "ai 可以幫忙寫文章",
+"keys": "aidk3u31; a;6vu,3jp65; "
+},
+{
+"gold": "chatgpt 和 claude 都很好用",
+"keys": "chatgptc04claude2. cp3cl3m/4"
+},
+{
+"gold": "open the file 然後存檔",
+"keys": "open the fileb06c.4hjp62;3"
+},
+{
+"gold": "save 之後再關掉",
+"keys": "save5 c.4y94ej0 2ul4"
+},
+{
+"gold": "這句話是 in english 寫的",
+"keys": "5k4rm4cj84g4in englishvu,32k7"
+},
+{
+"gold": "the best 就是這個",
+"keys": "the bestru.4g45k4ek7"
+},
+{
+"gold": "我覺得 very good",
+"keys": "ji3rm,62k6very good"
+},
+{
+"gold": "this is 我的朋友",
+"keys": "this isji32k7q/6u.3"
+},
+{
+"gold": "please 幫我看一下",
+"keys": "please1; ji3d04u6vu84"
+},
+{
+"gold": "see you 明天見",
+"keys": "see youau/6wu0 ru04"
+},
+{
+"gold": "happy birthday 祝你生日快樂",
+"keys": "happy birthday5j4su3g/ b4dj94xk4"
+},
+{
+"gold": "let me 想一下",
+"keys": "let mevu;3u vu84"
+}
+]

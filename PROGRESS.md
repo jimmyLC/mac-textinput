@@ -80,3 +80,7 @@ swiftc Sources/BilingualPrototype/*.swift tests/bilingual_resolver.swift -o /tmp
 ## Auto space between Chinese and English (unverified on a real device)
 - When an English run begins right after Chinese text (committed, or just committed from the composing buffer), a space is inserted first. Checked by reading the character before the caret; apps that do not report their text get no space. Toggle in the 個人詞典 window (default on).
 - English followed directly by Chinese with no typed space is still undetectable; space or Shift tap ends the English word.
+
+## 知之 Zhizhi rewrite (see docs/ZHIZHI-DESIGN.md)
+- Stage 1 engine: `Zhizhi/Sources/ZhizhiCore`. Stage 2 IME: `Zhizhi/Sources/ZhizhiIME`, built by `Zhizhi/scripts/build-ime.sh`, installed beside the old IME by `Zhizhi/scripts/install-ime.sh`. `Session` is the pure key-to-screen state machine; the controller only translates events.
+- Stage 2 is unverified on real apps: marked text, candidate window position, Caps Lock, left-Shift flip, floating window (not built yet, the list comes from real testing).
