@@ -60,6 +60,11 @@ final class DecoderTests: XCTestCase {
         XCTAssertEqual(text("su3cl3"), "你好")
         XCTAssertEqual(text("su3ccl3"), text("su3cl3"), "an extra c typed between the two words")
         XCTAssertNotEqual(text("su3c"), "你", "a letter at the end is still being typed, so it stays")
+    func testDigitsBeforePercentStayNumbers() {
+        XCTAssertEqual(text("10%"), "10%")
+        XCTAssertEqual(text("su3cl310%"), "你好10%")
+        XCTAssertEqual(text("su3cl3 10%"), "你好 10%")
+        XCTAssertEqual(text("su3cl3283"), text("su3cl3283"), "digits without a percent sign are untouched")
     }
     func testPendingSyllableShowsSymbols() { XCTAssertEqual(decoder.decode("su").last?.kind, .pending) }
     func testWrongToneIsTolerated() { XCTAssertEqual(text("su3cl "), "你好") }
