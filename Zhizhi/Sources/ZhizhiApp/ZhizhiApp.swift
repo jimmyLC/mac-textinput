@@ -15,6 +15,8 @@ struct ZhizhiApplication: App {
     }
 }
 
+extension Notification.Name { static let showOnboarding = Notification.Name("zhizhi.showOnboarding") }
+
 enum Page: String, CaseIterable, Identifiable {
     case home = "首頁", dictionary = "詞典", history = "歷史", preferences = "偏好設定", ai = "AI"
     var id: String { rawValue }
@@ -32,6 +34,8 @@ enum Page: String, CaseIterable, Identifiable {
 struct RootView: View {
     @EnvironmentObject private var model: AppModel
     @State private var page: Page? = .home
+    @AppStorage("onboardingDone") private var onboardingDone = false
+    @State private var showOnboarding = false
 
     var body: some View {
         NavigationSplitView {
@@ -65,6 +69,11 @@ struct RootView: View {
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in model.refresh() }
+        .onAppear { if !onboardingDone { showOnboarding = true } }
+        .onReceive(NotificationCenter.default.publisher(for: .showOnboarding)) { _ in showOnboarding = true }
+        .sheet(isPresented: $showOnboarding, onDismiss: { onboardingDone = true }) {
+            OnboardingView().environmentObject(model)
+        }
         .alert("下載本機 AI 模型？", isPresented: $model.offerModelDownload) {
             Button("下載") { model.downloadModel(); page = .ai }
             Button("先不要", role: .cancel) {}
@@ -102,6 +111,7 @@ struct HomePage: View {
                         Button("加入輸入法清單") { model.enable() }
                     }
                     Button("開啟鍵盤設定") { model.openKeyboardSettings() }
+                    Button("新手教學") { NotificationCenter.default.post(name: .showOnboarding, object: nil) }
                     Spacer()
                     if model.canRestore {
                         Button("還原到 \(model.backupVersion ?? "上一版")") { model.restore() }
