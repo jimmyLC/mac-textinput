@@ -32,6 +32,8 @@ final class AppModel: ObservableObject {
     // Dictionary
     @Published private(set) var dictionary: PersonalDictionary
     private lazy var lexicon: Lexicon = loadLexicon()
+    /// Words and characters the user picked more than once: typing ranks them first, though they are not new words.
+    @Published private(set) var favourites: [Learner.Boost] = []
 
     // History
     @Published private(set) var historyItems: [SentenceHistory.Item] = []
@@ -68,6 +70,8 @@ final class AppModel: ObservableObject {
         } ?? false
         modelInstalled = downloader.isInstalled
         dictionary = paths.loadDictionary()
+        let state = (try? Data(contentsOf: paths.learning)).flatMap { try? JSONDecoder().decode(Learner.State.self, from: $0) }
+        favourites = (state?.boosts.values.filter { $0.picks >= 2 } ?? []).sorted { ($0.picks, $0.word) > ($1.picks, $1.word) }
     }
 
     // MARK: - Install
