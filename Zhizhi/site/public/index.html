@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>知之輸入法</title>
-<meta name="description" content="知之是 Mac 的注音輸入法：中英混打不用切換，常用詞自己學起來，AI 在你的電腦上運算，免費使用。">
+<title>知之輸入法 — Mac 專屬注音輸入法</title>
+<meta name="description" content="知之是專為 Mac 打造的注音輸入法：中英混打不用切換，常用詞自己學起來，AI 在你的電腦上運算，免費使用。">
 <meta name="color-scheme" content="light dark">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -73,7 +73,7 @@ a { color: inherit; }
 
 /* hero */
 .hero { text-align: center; padding-top: clamp(40px, 8vw, 96px); }
-.hero h1 { margin: 0; font-family: var(--font-display); font-weight: 900; font-size: clamp(44px, 9.5vw, 112px); line-height: 1.12; letter-spacing: -0.01em; text-wrap: balance; }
+.hero h1 { margin: 0; font-family: var(--font-display); font-weight: 900; font-size: clamp(38px, 8vw, 96px); line-height: 1.12; letter-spacing: -0.01em; text-wrap: balance; }
 .hero h1 span { color: var(--muted); font-weight: 500; }
 .hero .en { font-family: var(--font-latin); font-style: italic; font-size: clamp(20px, 2.6vw, 28px); color: var(--muted); margin: 22px 0 0; }
 .hero .lead { max-width: 34em; margin: 14px auto 0; color: var(--muted); font-size: 17px; text-wrap: balance; }
@@ -107,6 +107,42 @@ kbd { font-family: var(--font-body); font-size: 12px; padding: 1px 9px; border: 
   .card { position: relative; inset: auto; width: 100%; max-width: 420px; transform: none; animation: none; }
   .stage .blob { top: 0; }
 }
+
+
+/* hero: Mac-only cues */
+.badge { display: inline-flex; align-items: center; gap: 10px; margin: 0 0 26px; padding: 6px 16px; border: 1px solid var(--line); border-radius: 999px; background: var(--glass); font-size: 13px; letter-spacing: 0.12em; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+.badge i { width: 7px; height: 7px; border-radius: 50%; background: var(--fg); }
+.facts { list-style: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 22px; margin: 22px 0 0; padding: 0; font-size: 13px; color: var(--muted); }
+.facts li::before { content: "✓"; margin-right: 6px; color: var(--fg); }
+.mac { position: relative; width: min(100%, 520px); border-radius: 14px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); overflow: visible; text-align: left; z-index: 1; }
+.menubar { display: flex; justify-content: space-between; align-items: center; padding: 7px 14px; font-size: 12.5px; border-bottom: 1px solid var(--line); background: var(--glass); border-radius: 14px 14px 0 0; }
+.mb-left, .mb-right { display: flex; gap: 16px; align-items: center; color: var(--muted); }
+.mb-left b { color: var(--fg); font-weight: 700; }
+.src { display: inline-grid; place-items: center; min-width: 26px; height: 20px; padding: 0 6px; border-radius: 6px; background: var(--ink-bg); color: var(--ink-fg); font-family: var(--font-display); font-weight: 900; font-size: 13px; }
+.menu-pop { position: absolute; right: 56px; top: 34px; z-index: 3; min-width: 168px; padding: 6px; border-radius: 10px; background: var(--glass); border: 1px solid var(--glass-line); box-shadow: var(--shadow); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); font-size: 13px; }
+.mi { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 6px; }
+.mi i { width: 14px; font-style: normal; font-size: 11px; }
+.mi small { color: var(--muted); font-size: 11px; }
+.mi.on { background: var(--ink-bg); color: var(--ink-fg); }
+.mi.on small { color: color-mix(in srgb, var(--ink-fg) 65%, transparent); }
+.win { padding: 20px 24px 22px; min-height: 250px; }
+.traffic { display: flex; gap: 7px; margin-bottom: 36px; }
+.traffic i { width: 11px; height: 11px; border-radius: 50%; border: 1px solid var(--muted); opacity: .6; }
+.doc { margin: 0; font-size: 22px; line-height: 1.6; }
+.doc u { text-decoration: none; border-bottom: 2px solid var(--fg); }
+.candbar { display: inline-flex; gap: 2px; margin-top: 10px; padding: 5px; border-radius: 10px; background: var(--glass); border: 1px solid var(--line); box-shadow: var(--shadow); font-size: 17px; }
+.candbar span { padding: 3px 12px; border-radius: 7px; display: inline-flex; gap: 8px; align-items: baseline; }
+.candbar em { font-style: normal; font-size: 11px; color: var(--muted); }
+.candbar .sel { background: var(--ink-bg); color: var(--ink-fg); }
+.candbar .sel em { color: color-mix(in srgb, var(--ink-fg) 65%, transparent); }
+.candbar .more { color: var(--muted); }
+.status { margin: 28px 0 0; font-size: 12px; color: var(--muted); letter-spacing: 0.1em; }
+#mark { position: absolute; inset: auto; width: min(94%, 640px); opacity: .1; z-index: 0; }
+.stage { min-height: 560px; }
+.c2 { right: 0; top: 70px; }
+.c3 { right: 3%; bottom: 36px; }
+.c4 { left: 0; bottom: 36px; top: auto; }
+@media (max-width: 880px) { .menu-pop { right: 12px; } #mark { display: none; } }
 
 /* sections */
 section { padding-block: clamp(64px, 10vw, 120px); }
@@ -179,24 +215,42 @@ footer { border-top: 1px solid var(--line); padding-block: 28px 44px; display: f
 
   <main id="top">
     <div class="hero">
-      <h1>打字，<br><span>順著想法走。</span></h1>
-      <p class="en">A Zhuyin input method for Mac, built around how you really type.</p>
-      <p class="lead">中文和英文混著打，不必停下來切換。少選幾次字，常用的詞自己記起來，所有運算都在你的電腦上完成。</p>
+      <p class="badge"><i></i>Mac 專屬 · 注音輸入法</p>
+      <h1>專為 Mac 打造的<br><span>注音輸入法。</span></h1>
+      <p class="en">Zhizhi — a Zhuyin input method made only for the Mac.</p>
+      <p class="lead">安裝後就在選單列和系統的輸入法清單裡，跟內建注音一樣切換。中英文混著打不用停，常用的詞自己記起來，AI 在你的電腦上運算。</p>
       <div class="cta">
-        <a class="btn dl" href="#download">免費下載 Mac 版 <span aria-hidden="true">↓</span></a>
+        <a class="btn dl" href="#download">下載 macOS 版 <span aria-hidden="true">↓</span></a>
         <a class="btn ghost" href="#features">看它怎麼運作</a>
       </div>
-      <p class="free">免費使用</p>
+      <ul class="facts" aria-label="重點">
+        <li>免費使用</li><li>macOS 14 以上</li><li>Apple 晶片</li><li>本機運算，不上雲端</li>
+      </ul>
 
-      <div class="stage" aria-label="知之輸入法的功能示意">
+      <div class="stage" aria-label="知之輸入法在 Mac 上的樣子">
         <div class="blob" aria-hidden="true"></div><div class="blob b" aria-hidden="true"></div>
-        <canvas id="mark" width="560" height="340" role="img" aria-label="由圓點組成的「知之」二字"></canvas>
+        <canvas id="mark" width="560" height="340" aria-hidden="true"></canvas>
 
-        <div class="card c1">
-          <div class="tag">中英混打</div>
-          <p class="line">明天的 <u>meeting</u> 改到三點<span class="caret"></span></p>
-          <p class="hint">不用切換輸入法，英文自己認得出來。</p>
+        <div class="mac" role="img" aria-label="Mac 桌面示意：選單列的輸入法選單與正在打字的視窗">
+          <div class="menubar">
+            <span class="mb-left"><b>備忘錄</b><span>檔案</span><span>編輯</span><span>格式</span></span>
+            <span class="mb-right"><span class="src">知</span><span class="clock">週三 21:30</span></span>
+          </div>
+          <div class="menu-pop" aria-hidden="true">
+            <div class="mi"><i></i>注音</div>
+            <div class="mi on"><i>✓</i>知之 <small>Zhizhi</small></div>
+            <div class="mi"><i></i>ABC</div>
+          </div>
+          <div class="win">
+            <div class="traffic" aria-hidden="true"><i></i><i></i><i></i></div>
+            <p class="doc">明天的 meeting 改到<u>ㄙㄢ</u><span class="caret"></span></p>
+            <div class="candbar" aria-hidden="true">
+              <span class="sel"><em>1</em>三</span><span><em>2</em>傘</span><span><em>3</em>散</span><span class="more">›</span>
+            </div>
+            <p class="status">輸入法：知之</p>
+          </div>
         </div>
+
         <div class="card c2">
           <div class="tag">TAB 補全</div>
           <p class="line">recomm<span class="ghost-text">endation</span></p>
