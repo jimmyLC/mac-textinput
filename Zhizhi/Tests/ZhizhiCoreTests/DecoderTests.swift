@@ -219,4 +219,26 @@ final class DecoderTests: XCTestCase {
         l.addUserEnglish("MyJAV")
         XCTAssertEqual(Decoder(lexicon: l).render(Decoder(lexicon: l).decode("myjav")), "MyJAV")
     }
+
+    // MARK: - Word pairs
+
+    func testWordPairsChooseAmongSameSoundWords() {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent()
+        let lexicon = Lexicon()
+        lexicon.loadChinese(tsv: try! String(contentsOf: root.appendingPathComponent("data/chinese-lexicon.tsv"), encoding: .utf8))
+        let paired = Decoder(lexicon: lexicon)
+        // ㄓㄜˋ ㄈㄣˋ: alone, 分 is the commoner word of that sound.
+        let keys = "5k4zp4"
+        XCTAssertEqual(paired.render(paired.decode(keys)), "這分")
+        lexicon.loadPairs(tsv: "這\t份\t900\n這\t個\t100\n")
+        XCTAssertEqual(paired.render(paired.decode(keys)), "這份", "份 usually follows 這")
+
+        // The packed form gives the same answers.
+        let reloaded = Lexicon()
+        reloaded.loadChinese(tsv: try! String(contentsOf: root.appendingPathComponent("data/chinese-lexicon.tsv"), encoding: .utf8))
+        reloaded.loadPairs(data: lexicon.pairData)
+        let again = Decoder(lexicon: reloaded)
+        XCTAssertEqual(again.render(again.decode(keys)), "這份")
+    }
 }

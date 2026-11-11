@@ -15,6 +15,9 @@ cp Resources/Info.plist "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(date +%Y%m%d%H%M%S)" "$APP/Contents/Info.plist"
 cp -R Resources/zh-Hant.lproj Resources/Base.lproj "$APP/Contents/Resources/"
 cp "$ROOT/data/chinese-lexicon.tsv" "$ROOT/data/english-words.txt" "$APP/Contents/Resources/"
+# Word pairs (from Chinese Wikipedia, CC BY-SA 4.0) packed for a fast load.
+swift build -c release --product zhizhi-eval
+.build/release/zhizhi-eval "$ROOT" pairs "$APP/Contents/Resources/chinese-pairs.bin"
 swift scripts/make-icon.swift assets/icon.svg "$APP/Contents/Resources/Zhizhi.tiff"
 
 # The local-AI helper needs Xcode, which compiles MLX's GPU shaders. Typing works without it.
