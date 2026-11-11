@@ -56,6 +56,12 @@ final class DecoderTests: XCTestCase {
         XCTAssertEqual(decoder.decode("su cl").last?.kind, .chinese, "the space after ㄋㄧ is its tone, so ㄏㄠ goes on as Chinese")
         XCTAssertEqual(text("su3cl3"), "你好")
     }
+    func testDigitsBeforePercentStayNumbers() {
+        XCTAssertEqual(text("10%"), "10%")
+        XCTAssertEqual(text("su3cl310%"), "你好10%")
+        XCTAssertEqual(text("su3cl3 10%"), "你好 10%")
+        XCTAssertEqual(text("su3cl3283"), text("su3cl3283"), "digits without a percent sign are untouched")
+    }
     func testPendingSyllableShowsSymbols() { XCTAssertEqual(decoder.decode("su").last?.kind, .pending) }
     func testWrongToneIsTolerated() { XCTAssertEqual(text("su3cl "), "你好") }
     func testPickedCandidateIsKept() {

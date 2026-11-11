@@ -109,7 +109,22 @@ public final class Decoder {
 
         var fixedAt = [Constraint?](repeating: nil, count: n)
         for c in constraints { for i in c.range where i < n { fixedAt[i] = c } }
-        let spans = (0..<n).map { syllableSpans(keys, from: $0) }
+        var spans = (0..<n).map { syllableSpans(keys, from: $0) }
+        // Digits right before a percent sign are a number ("大於10%"), never toneless Zhuyin ("大於辦%").
+        var percentDigit = [Bool](repeating: false, count: n)
+        var k = n - 1
+        while k > 0 {
+            if keys[k] == "%", keys[k - 1].isNumber {
+                var j = k - 1
+                while j >= 0, keys[j].isNumber { percentDigit[j] = true; j -= 1 }
+                // "好" + tone 3 + "10%": the first digit of a run of three or more may still be the tone of the word before.
+                if k - (j + 1) >= 3, "3467".contains(keys[j + 1]) { percentDigit[j + 1] = false }
+                k = j
+            } else { k -= 1 }
+        }
+        if percentDigit.contains(true) {
+            for i in 0..<n { spans[i].removeAll { span in (i..<span.end).contains { percentDigit[$0] } } }
+        }
 
         var edgeStore: [Edge] = []
         edgeStore.reserveCapacity(n * 8)
