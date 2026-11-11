@@ -149,7 +149,22 @@ public final class Decoder {
             pos = Int(b.prev)
             ctx = Int(b.prevContext)
         }
-        return result.reversed()
+        return Self.dropStrayLetters(result.reversed())
+    }
+
+    /// A single lowercase letter that nothing could read, standing between Chinese words ("沒c反應"),
+    /// is a slip of the finger: it is left out of the text. Letters at the end are still being typed and stay,
+    /// and a letter the user flipped to English (Shift) is English, not a stray.
+    private static func dropStrayLetters(_ segments: [Segment]) -> [Segment] {
+        var out = segments
+        for i in out.indices where i > 0 && i < out.count - 1 {
+            let s = out[i]
+            guard s.kind == .other, s.range.count == 1, s.text.count == 1, let c = s.text.first,
+                  c.isASCII, c.isLetter, c.isLowercase,
+                  out[i - 1].kind == .chinese, out[i + 1].kind == .chinese else { continue }
+            out[i].text = ""
+        }
+        return out
     }
 
     /// The text shown for decoded segments, with a space between Chinese and English.

@@ -56,6 +56,11 @@ final class DecoderTests: XCTestCase {
         XCTAssertEqual(decoder.decode("su cl").last?.kind, .chinese, "the space after ㄋㄧ is its tone, so ㄏㄠ goes on as Chinese")
         XCTAssertEqual(text("su3cl3"), "你好")
     }
+    func testStrayLetterBetweenChineseIsDropped() {
+        XCTAssertEqual(text("su3cl3"), "你好")
+        XCTAssertEqual(text("su3ccl3"), text("su3cl3"), "an extra c typed between the two words")
+        XCTAssertNotEqual(text("su3c"), "你", "a letter at the end is still being typed, so it stays")
+    }
     func testPendingSyllableShowsSymbols() { XCTAssertEqual(decoder.decode("su").last?.kind, .pending) }
     func testWrongToneIsTolerated() { XCTAssertEqual(text("su3cl "), "你好") }
     func testPickedCandidateIsKept() {
