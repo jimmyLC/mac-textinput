@@ -65,6 +65,13 @@ final class DecoderTests: XCTestCase {
         XCTAssertEqual(text("su3cl310%"), "你好10%")
         XCTAssertEqual(text("su3cl3 10%"), "你好 10%")
         XCTAssertEqual(text("su3cl3283"), text("su3cl3283"), "digits without a percent sign are untouched")
+    func testListMarker() {
+        XCTAssertEqual(text("2."), "2.")
+        XCTAssertEqual(text("2. "), "2. ")
+        XCTAssertEqual(text("3. "), "3. ")
+        XCTAssertEqual(text("su3cl3 2. "), "你好 2. ")
+        XCTAssertEqual(kinds("2.4"), [.chinese], "ㄉㄡˋ stays Zhuyin")
+        XCTAssertEqual(text("5. ai4"), "週末", "ㄓㄡ followed by more syllables is still a word")
     }
     func testPendingSyllableShowsSymbols() { XCTAssertEqual(decoder.decode("su").last?.kind, .pending) }
     func testWrongToneIsTolerated() { XCTAssertEqual(text("su3cl "), "你好") }
