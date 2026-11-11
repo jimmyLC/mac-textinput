@@ -241,4 +241,12 @@ final class DecoderTests: XCTestCase {
         let again = Decoder(lexicon: reloaded)
         XCTAssertEqual(again.render(again.decode(keys)), "這份")
     }
+
+    func testComplementDeAfterAVerb() {
+        func typed(_ syllables: [String]) -> String { text(syllables.map(Zhuyin.keys(forSyllable:)).joined()) }
+        XCTAssertEqual(typed(["ㄋㄧˇ", "ㄕㄨㄛ", "ㄉㄜ˙", "ㄏㄣˇ", "ㄧㄡˇ", "ㄉㄠˋ", "ㄌㄧˇ"]), "你說得很有道理")
+        XCTAssertEqual(typed(["ㄕˊ", "ㄐㄧㄢ", "ㄍㄨㄛˋ", "ㄉㄜ˙", "ㄓㄣ", "ㄎㄨㄞˋ"]), "時間過得真快")
+        XCTAssertEqual(typed(["ㄨㄛˇ", "ㄉㄜ˙", "ㄏㄠˇ", "ㄆㄥˊ", "ㄧㄡˇ"]), "我的好朋友", "no verb before it: still 的")
+        XCTAssertEqual(typed(["ㄋㄧˇ", "ㄕㄨㄛ", "ㄉㄜ˙", "ㄅㄨˊ", "ㄉㄨㄟˋ"]), text(["ㄋㄧˇ", "ㄕㄨㄛ", "ㄉㄜ˙", "ㄅㄨˊ", "ㄉㄨㄟˋ"].map(Zhuyin.keys(forSyllable:)).joined()), "不 is not a degree word: left alone")
+    }
 }

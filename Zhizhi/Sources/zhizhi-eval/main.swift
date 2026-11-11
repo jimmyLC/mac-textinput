@@ -22,6 +22,7 @@ if ProcessInfo.processInfo.environment["ZHIZHI_NO_PAIRS"] == nil {
 let decoder = Decoder(lexicon: lexicon)
 if let w = ProcessInfo.processInfo.environment["ZHIZHI_PAIR_WEIGHT"].flatMap(Float.init) { decoder.costs.pairWeight = w }
 if let l = ProcessInfo.processInfo.environment["ZHIZHI_PAIR_LIMIT"].flatMap(Float.init) { decoder.costs.pairLimit = l }
+if let d = ProcessInfo.processInfo.environment["ZHIZHI_DE"].flatMap(Float.init) { decoder.costs.complementDe = d }
 if let k = ProcessInfo.processInfo.environment["ZHIZHI_WORDS_PER_SPAN"].flatMap(Int.init) { decoder.costs.wordsPerSpan = k }
 
 let equivalent: [Character: Character] = ["她": "他", "它": "他", "牠": "他", "儘": "盡", "覆": "復", "複": "復", "週": "周"]
