@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /downloads/
+
+Sitemap: https://zhizhi.jimmy-tools.com/sitemap.xml
