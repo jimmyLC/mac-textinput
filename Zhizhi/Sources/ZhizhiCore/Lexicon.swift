@@ -6,6 +6,7 @@ public final class Lexicon {
         let word: String
         let score: Float      // log probability
         let tones: [UInt8]
+        let id: UInt32        // wordID(word), kept so decoding never hashes text
     }
     struct Node {
         var children: [UInt16: Int32] = [:]
@@ -23,7 +24,9 @@ public final class Lexicon {
     private var originalScores: [String: Float] = [:]     // word + reading, before any boost
     private var pairKeys: [UInt64] = []                   // sorted: first word's id << 32 | second word's id
     private var pairScores: [Float] = []                  // log10 P(second | first), same order
-    var hasPairs: Bool { !pairKeys.isEmpty }
+    private var ownPairs: [UInt64: Float] = [:]           // the user's own pairs: how much cheaper the second word gets
+    private(set) var ownPairWords: Set<UInt32> = []       // second words of those pairs: always kept as candidates
+    var hasPairs: Bool { !pairKeys.isEmpty || !ownPairs.isEmpty }
 
     /// A personal-dictionary entry offered by Tab: starts with English letters or Chinese syllables.
     struct UserEntry {
@@ -98,6 +101,14 @@ public final class Lexicon {
         }
         return low < pairKeys.count && pairKeys[low] == key ? pairScores[low] : nil
     }
+
+    /// The user's own pair, learned from a choice: `gain` nil forgets it.
+    public func setOwnPair(first: UInt32, second: UInt32, gain: Float?) {
+        ownPairs[UInt64(first) << 32 | UInt64(second)] = gain
+        ownPairWords = Set(ownPairs.keys.map { UInt32(truncatingIfNeeded: $0) })
+    }
+
+    func ownPairGain(_ first: UInt32, _ second: UInt32) -> Float? { ownPairs[UInt64(first) << 32 | UInt64(second)] }
 
     /// `tsv` rows are `first<TAB>second<TAB>count`.
     public func loadPairs(tsv: String) {
@@ -262,7 +273,7 @@ public final class Lexicon {
         let original = originalScores[key] ?? nodes[node].entries[index].score
         originalScores[key] = original
         let entry = nodes[node].entries[index]
-        nodes[node].entries[index] = Entry(word: word, score: original + amount, tones: entry.tones)
+        nodes[node].entries[index] = Entry(word: word, score: original + amount, tones: entry.tones, id: entry.id)
         nodes[node].entries.sort { $0.score > $1.score }
     }
 
@@ -293,7 +304,7 @@ public final class Lexicon {
                 node = Int(next)
             }
         }
-        nodes[node].entries.append(Entry(word: word, score: score, tones: tones))
+        nodes[node].entries.append(Entry(word: word, score: score, tones: tones, id: Self.wordID(word)))
     }
 
     private func baseID(_ base: String) -> UInt16 {

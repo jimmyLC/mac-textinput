@@ -140,9 +140,20 @@ public final class Session {
             let range = first.range.lowerBound..<last.range.upperBound
             if let reading = decoder.reading(of: text, keys: keys, range: range) { learner.pickedPhrase(text: text, reading: reading) }
         }
+        let segments = composition.segments(decoder)
         for c in composition.constraints.filter({ $0.picked }).sorted(by: { $0.range.lowerBound < $1.range.lowerBound }) {
             guard case .text(let text, _) = c.fix else { continue }
-            if let reading = decoder.reading(of: text, keys: keys, range: c.range) { learner.picked(word: text, reading: reading) }
+            // Chosen next to other Chinese words: the choice is about this spot. Chosen alone: about the word.
+            let at = segments.firstIndex { $0.range == c.range }
+            let previous = at.flatMap { $0 > 0 && segments[$0 - 1].kind == .chinese ? segments[$0 - 1].text : nil }
+            let next = at.flatMap { $0 + 1 < segments.count && segments[$0 + 1].kind == .chinese ? segments[$0 + 1].text : nil }
+            if previous != nil || next != nil {
+                let without = decoder.decode(keys: keys, constraints: composition.constraints.filter { $0 != c }, leading: composition.leading)
+                let replaced = without.first { $0.range == c.range && $0.kind == .chinese }?.text
+                learner.pickedBetween(word: text, previous: previous, next: next, replaced: replaced)
+            } else if let reading = decoder.reading(of: text, keys: keys, range: c.range) {
+                learner.picked(word: text, reading: reading)
+            }
             if let last = run.last, last.range.upperBound != c.range.lowerBound { closeRun() }
             run.append(c)
         }
