@@ -17,7 +17,6 @@ not_found_handling = "404-page"
 [observability]
 enabled = false
 
-# Downloads: create the bucket once (`wrangler r2 bucket create zhizhi-releases`), then enable this.
-# [[r2_buckets]]
-# binding = "RELEASES"
-# bucket_name = "zhizhi-releases"
+[[r2_buckets]]
+binding = "RELEASES"
+bucket_name = "zhizhi-releases"
