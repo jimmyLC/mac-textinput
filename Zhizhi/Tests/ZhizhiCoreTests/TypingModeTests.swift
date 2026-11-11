@@ -26,6 +26,14 @@ final class TypingModeTests: XCTestCase {
         XCTAssertNil(mode.lowercaseOverride(letter: "A", shift: false))
         XCTAssertNil(mode.lowercaseOverride(letter: "1", shift: true))
     }
+    func testLoneShiftUnderCapsLeavesCapsAndChinese() {
+        var mode = TypingMode()
+        _ = mode.syncCaps(true)
+        XCTAssertEqual(tap(&mode, composing: false), .leaveCaps)
+        XCTAssertFalse(mode.englishMode)
+        _ = mode.syncCaps(false)
+        XCTAssertFalse(mode.passesThrough)
+    }
     func testNoOverrideWithoutCaps() {
         XCTAssertNil(TypingMode().lowercaseOverride(letter: "A", shift: true))
     }
@@ -60,11 +68,5 @@ final class TypingModeTests: XCTestCase {
         _ = mode.flagsChanged(keyCode: TypingMode.leftShiftKeyCode, shift: true, composing: false, now: start)
         _ = mode.flagsChanged(keyCode: 55, shift: true, composing: false, now: start)
         XCTAssertNil(mode.flagsChanged(keyCode: TypingMode.leftShiftKeyCode, shift: false, composing: false, now: start))
-    }
-    func testNoToggleUnderCaps() {
-        var mode = TypingMode()
-        _ = mode.syncCaps(true)
-        XCTAssertNil(tap(&mode, composing: false))
-        XCTAssertFalse(mode.englishMode)
     }
 }

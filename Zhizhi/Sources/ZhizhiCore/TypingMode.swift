@@ -7,6 +7,7 @@ public struct TypingMode: Equatable {
         case capsChanged(Bool)
         case englishChanged(Bool)
         case flipSegment
+        case leaveCaps          // a lone tap under Caps Lock: the app switches Caps Lock off, back to Chinese
     }
 
     public static let leftShiftKeyCode: UInt16 = 56
@@ -57,7 +58,11 @@ public struct TypingMode: Equatable {
         guard let down = shiftDownAt else { return nil }
         let held = now.timeIntervalSince(down)
         if composing { return held < Self.flipWindow ? .flipSegment : nil }
-        guard held < Self.toggleWindow, !capsOn else { return nil }
+        guard held < Self.toggleWindow else { return nil }
+        if capsOn {    // Caps Lock forces English, so toggling would show "中文" while still typing English
+            englishMode = false
+            return .leaveCaps
+        }
         englishMode.toggle()
         return .englishChanged(englishMode)
     }

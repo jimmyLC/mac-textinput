@@ -1,6 +1,7 @@
 import AppKit
 import Carbon
 import InputMethodKit
+import IOKit.hid
 import ZhizhiCore
 
 /// Translates system events into `Session` keys and applies its output to the app.
@@ -60,12 +61,15 @@ final class ZhizhiInputController: IMKInputController {
             return false
         }
 
+        let started = CFAbsoluteTimeGetCurrent()
         prepareLearning(client: sender)
         let key = translate(event)
         if !session.isComposing { session.setPreviousCharacter(characterBeforeCaret(client: sender)) }
         let output = session.handle(key)
         DebugLog.shared.record("key=\(Self.describe(key)) -> handled=\(output.handled) composing=\(session.isComposing) kinds=\(kinds()) commit=\(output.commit != nil)")
         apply(output, client: sender)
+        let ms = Int((CFAbsoluteTimeGetCurrent() - started) * 1000)
+        DebugLog.shared.record("key=\(Self.describe(key)) -> handled=\(output.handled) composing=\(session.isComposing) kinds=\(kinds()) commit=\(output.commit != nil) ms=\(ms)")
         scheduleCorrection(client: sender)
         return output.handled
     }
@@ -134,6 +138,11 @@ final class ZhizhiInputController: IMKInputController {
             let output = session.handle(.shiftTap)
             DebugLog.shared.record("key=shiftTap -> kinds=\(kinds())")
             apply(output, client: client)
+        case .leaveCaps:
+            Self.setCapsLock(false)
+            _ = Self.mode.syncCaps(false)
+            DebugLog.shared.record("mode=chinese (caps off by shift)")
+            showModeTip("中文", client: client)
         case .englishChanged(let on):
             DebugLog.shared.record("mode=\(on ? "english" : "chinese")")
             showModeTip(on ? "English" : "中文", client: client)
@@ -141,6 +150,17 @@ final class ZhizhiInputController: IMKInputController {
             break
         }
         return false
+    }
+
+    /// Turns the Caps Lock state, and its light, off or on.
+    private static func setCapsLock(_ on: Bool) {
+        let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching(kIOHIDSystemClass))
+        guard service != 0 else { return }
+        defer { IOObjectRelease(service) }
+        var connection: io_connect_t = 0
+        guard IOServiceOpen(service, mach_task_self_, UInt32(kIOHIDParamConnectType), &connection) == KERN_SUCCESS else { return }
+        IOHIDSetModifierLockState(connection, Int32(kIOHIDCapsLockState), on)
+        IOServiceClose(connection)
     }
 
     private func syncCaps(_ event: NSEvent, client: Any!) {
@@ -268,7 +288,7 @@ final class ZhizhiInputController: IMKInputController {
         let clearHistory = menu.addItem(withTitle: "清除句子歷史", action: #selector(clearSentenceHistory(_:)), keyEquivalent: "")
         clearHistory.target = self
         menu.addItem(.separator())
-        let log = menu.addItem(withTitle: "記錄打字判斷（除錯用，24 小時後關閉）", action: #selector(toggleDebugLog(_:)), keyEquivalent: "")
+        let log = menu.addItem(withTitle: "記錄打字判斷（除錯用，90 天後關閉）", action: #selector(toggleDebugLog(_:)), keyEquivalent: "")
         log.target = self
         log.state = DebugLog.shared.enabled ? .on : .off
         let clear = menu.addItem(withTitle: "清除記錄", action: #selector(clearDebugLog(_:)), keyEquivalent: "")

@@ -89,7 +89,7 @@ final class Engine {
 }
 
 /// Opt-in local log of keys and routing, for finding misjudgements. Off by default, turns itself
-/// off after 24 hours, keeps 7 days and 2 MB, readable only by the owner, never uploaded.
+/// off after 90 days, keeps 7 days and 2 MB, readable only by the owner, never uploaded.
 final class DebugLog {
     static let shared = DebugLog()
     private let enabledKey = "DebugLogEnabledAt"
@@ -106,7 +106,7 @@ final class DebugLog {
     var enabled: Bool {
         get {
             guard let since = UserDefaults.standard.object(forKey: enabledKey) as? Date else { return false }
-            if Date().timeIntervalSince(since) > 24 * 3600 {
+            if Date().timeIntervalSince(since) > 90 * 86400 {
                 UserDefaults.standard.removeObject(forKey: enabledKey)
                 return false
             }
