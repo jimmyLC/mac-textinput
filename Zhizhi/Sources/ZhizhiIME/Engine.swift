@@ -5,7 +5,7 @@ import ZhizhiCore
 final class Engine {
     static let shared = Engine()
     /// A swap must raise the sentence's log-probability by this much (eval/README.md).
-    static let correctionThreshold: Float = 2.5
+    static let correctionThreshold: Float = 2.0
     let paths = ZhizhiPaths()
     private(set) var settings = Settings(defaults: Settings.sharedDefaults)
 
