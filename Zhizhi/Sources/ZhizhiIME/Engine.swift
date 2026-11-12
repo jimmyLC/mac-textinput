@@ -37,6 +37,13 @@ final class Engine {
         let state = (try? Data(contentsOf: paths.learning)).flatMap { try? JSONDecoder().decode(Learner.State.self, from: $0) }
         let learner = Learner(lexicon: lexicon, dictionary: paths.loadDictionary(), state: state ?? Learner.State())
         learner.onChange = { [weak self] in self?.scheduleSave() }
+        learner.judge = { [weak self] text, done in
+            guard let self, self.settings.aiCorrections, self.settings.aiModel == .qwen, self.qwen.isAvailable else { return }
+            self.qwen.score([text] + text.map(String.init)) { scores in
+                guard let scores, scores.count == text.count + 1 else { return }
+                done(Learner.unitness(whole: scores[0], characters: Array(scores.dropFirst())) >= Learner.unitThreshold)
+            }
+        }
         self.learner = learner
         decoder = Decoder(lexicon: lexicon)
         settings.apply(to: decoder)
