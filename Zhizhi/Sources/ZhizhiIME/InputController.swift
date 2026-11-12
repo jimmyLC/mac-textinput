@@ -47,6 +47,11 @@ final class ZhizhiInputController: IMKInputController {
     override func handle(_ event: NSEvent!, client sender: Any!) -> Bool {
         guard let event else { return false }
         if event.type == .flagsChanged { return handleFlags(event, client: sender) }
+        Self.mode.englishIdleLimit = TimeInterval(Engine.shared.settings.englishIdleSeconds)
+        if event.type == .keyDown, Self.mode.expireEnglishIfIdle() {
+            DebugLog.shared.record("mode=chinese (english idle)")
+            showModeTip("中文", client: sender)
+        }
         Self.mode.otherInput()   // a Shift-click or Shift+key is not a lone Shift tap
         guard event.type == .keyDown else { return false }
 

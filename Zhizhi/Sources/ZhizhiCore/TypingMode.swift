@@ -19,6 +19,9 @@ public struct TypingMode: Equatable {
     public private(set) var capsOn = false
     public private(set) var englishMode = false
     private var shiftDownAt: Date?
+    /// English mode goes back to Chinese after this many idle seconds; 0 keeps it until toggled.
+    public var englishIdleLimit: TimeInterval = 60
+    private var englishActiveAt: Date?
 
     public init() {}
 
@@ -29,6 +32,15 @@ public struct TypingMode: Equatable {
     public func lowercaseOverride(letter: Character, shift: Bool) -> String? {
         guard capsOn, shift, letter.isASCII, letter.isLetter else { return nil }
         return letter.lowercased()
+    }
+
+    /// Call for every key. If English mode sat idle past the limit, it ends (true) before this key is handled.
+    public mutating func expireEnglishIfIdle(now: Date = Date()) -> Bool {
+        defer { if englishMode { englishActiveAt = now } }
+        guard englishMode, englishIdleLimit > 0, let last = englishActiveAt,
+              now.timeIntervalSince(last) >= englishIdleLimit else { return false }
+        englishMode = false
+        return true
     }
 
     /// Any key or click between Shift down and up means it was not a lone tap.
@@ -64,6 +76,7 @@ public struct TypingMode: Equatable {
             return .leaveCaps
         }
         englishMode.toggle()
+        englishActiveAt = englishMode ? now : nil
         return .englishChanged(englishMode)
     }
 }

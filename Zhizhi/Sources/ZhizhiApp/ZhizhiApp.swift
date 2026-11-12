@@ -320,6 +320,13 @@ struct PreferencesPage: View {
                     Text("右 Shift").tag(Settings.SwitchKey.rightShift)
                     Text("不使用").tag(Settings.SwitchKey.none)
                 }
+                Picker("英文模式閒置後自動回中文", selection: $model.settings.englishIdleSeconds) {
+                    Text("不自動切回").tag(0)
+                    Text("30 秒").tag(30)
+                    Text("1 分鐘").tag(60)
+                    Text("2 分鐘").tag(120)
+                    Text("5 分鐘").tag(300)
+                }
                 Toggle("中英文之間自動空格", isOn: $model.settings.autoSpace)
                 Picker("標點寬度", selection: $model.settings.punctuation) {
                     Text("跟著前面的文字").tag(Settings.PunctuationWidth.follow)

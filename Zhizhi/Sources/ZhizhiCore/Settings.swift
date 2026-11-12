@@ -17,6 +17,9 @@ public struct Settings: Equatable {
     public var aiCorrections = true
     public var aiModel = AIModel.qwen
     public var learningPaused = false
+    /// Seconds of no typing after which English mode returns to Chinese; 0 means never.
+    public var englishIdleSeconds = 60
+    public static let englishIdleChoices = [0, 30, 60, 120, 300]
     /// Off until the owner has verified on this Mac that secure fields bypass the input method.
     public var sentenceHistory = false
 
@@ -48,6 +51,7 @@ public struct Settings: Equatable {
         aiCorrections = !defaults.bool(forKey: "AICorrectionsOff")
         if let v = defaults.string(forKey: "AIModel").flatMap(AIModel.init) { aiModel = v }
         learningPaused = defaults.bool(forKey: "LearningPaused")
+        if defaults.object(forKey: "EnglishIdleSeconds") != nil { englishIdleSeconds = max(0, defaults.integer(forKey: "EnglishIdleSeconds")) }
         sentenceHistory = defaults.bool(forKey: "SentenceHistoryOn")
     }
 
@@ -62,6 +66,7 @@ public struct Settings: Equatable {
         defaults.set(!aiCorrections, forKey: "AICorrectionsOff")
         defaults.set(aiModel.rawValue, forKey: "AIModel")
         defaults.set(learningPaused, forKey: "LearningPaused")
+        defaults.set(englishIdleSeconds, forKey: "EnglishIdleSeconds")
         defaults.set(sentenceHistory, forKey: "SentenceHistoryOn")
         defaults.synchronize()
     }
