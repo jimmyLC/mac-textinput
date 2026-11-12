@@ -283,6 +283,18 @@ final class ModelDownloaderTests: XCTestCase {
         XCTAssertFalse(downloader.isInstalled)
         XCTAssertTrue(FileManager.default.fileExists(atPath: real.appendingPathComponent("model.safetensors").path))
     }
+    func testPersonalModelWinsOnlyWhenComplete() throws {
+        let shared = root.appendingPathComponent("shared"), personal = root.appendingPathComponent("personal")
+        for folder in [shared, personal] { try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true) }
+        try Data("w".utf8).write(to: shared.appendingPathComponent("model.safetensors"))
+        let client = HelperClient(executable: URL(fileURLWithPath: "/bin/echo"), model: shared, personal: personal)
+        XCTAssertEqual(client.activeModel, shared, "a personal folder without weights is ignored")
+        try Data("p".utf8).write(to: personal.appendingPathComponent("model.safetensors"))
+        XCTAssertEqual(client.activeModel, personal)
+        XCTAssertTrue(client.isUsingPersonalModel)
+        try FileManager.default.removeItem(at: personal)
+        XCTAssertEqual(client.activeModel, shared)
+    }
     func testBundledManifestCoversWhatTheHelperLoads() {
         let names = Set(ModelManifest.qwen.files.map(\.name))
         XCTAssertTrue(names.isSuperset(of: ["config.json", "tokenizer.json", "tokenizer_config.json"]))

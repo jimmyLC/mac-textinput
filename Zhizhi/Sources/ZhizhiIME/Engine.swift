@@ -13,7 +13,8 @@ final class Engine {
     private(set) var learner: Learner?
     private lazy var qwen = HelperClient(
         executable: Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/zhizhi-ai"),
-        model: paths.models.appendingPathComponent(ModelManifest.qwen.name))
+        model: paths.models.appendingPathComponent(ModelManifest.qwen.name),
+        personal: paths.models.appendingPathComponent(HelperClient.personalFolderName))
     private let apple = AppleModelBackend()
     /// The model the owner chose. If it cannot run, there are no corrections: it never quietly uses the other.
     var ai: CorrectionBackend { settings.aiModel == .apple ? apple : qwen }

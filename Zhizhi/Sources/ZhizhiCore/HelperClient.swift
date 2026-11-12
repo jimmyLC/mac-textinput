@@ -16,14 +16,29 @@ public final class HelperClient {
     private var waiting: [Int: Completion] = [:]
     private var unsent: [Data] = []
 
-    public init(executable: URL, model: URL) {
+    /// A model trained on this Mac's own typing. It never leaves the Mac, and wins over `model` when present.
+    public static let personalFolderName = "Zhizhi-personal"
+    private let personal: URL?
+    private var runningModel: URL?
+
+    public init(executable: URL, model: URL, personal: URL? = nil) {
         self.executable = executable
         self.model = model
+        self.personal = personal
     }
 
+    private static func hasWeights(_ folder: URL) -> Bool {
+        FileManager.default.fileExists(atPath: folder.appendingPathComponent("model.safetensors").path)
+    }
+    /// The folder used for the next request: the personal model if it is complete, else the shared one.
+    public var activeModel: URL {
+        if let personal, Self.hasWeights(personal) { return personal }
+        return model
+    }
+    public var isUsingPersonalModel: Bool { activeModel != model }
+
     public var isAvailable: Bool {
-        FileManager.default.isExecutableFile(atPath: executable.path)
-            && FileManager.default.fileExists(atPath: model.appendingPathComponent("model.safetensors").path)
+        FileManager.default.isExecutableFile(atPath: executable.path) && Self.hasWeights(activeModel)
     }
 
     /// Scores texts in the background. The completion runs on a private queue, with nil on failure.
@@ -50,11 +65,16 @@ public final class HelperClient {
     }
 
     private func startIfNeeded() -> Bool {
-        if process?.isRunning == true { return true }
+        let wanted = activeModel
+        if process?.isRunning == true {
+            if runningModel == wanted { return true }
+            process?.terminate()   // the personal model appeared or went away: start again on the right one
+        }
         finish()
+        runningModel = wanted
         let child = Process()
         child.executableURL = executable
-        child.arguments = [model.path]
+        child.arguments = [wanted.path]
         let stdin = Pipe(), stdout = Pipe()
         child.standardInput = stdin
         child.standardOutput = stdout

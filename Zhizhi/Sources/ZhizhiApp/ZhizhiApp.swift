@@ -387,6 +387,9 @@ struct AIPage: View {
                 LabeledContent("Qwen2.5-1.5B 口語微調版") {
                     Text(model.modelInstalled ? "已安裝" : "尚未安裝").foregroundStyle(model.modelInstalled ? Color.secondary : Color.orange)
                 }
+                if model.personalModelInstalled {
+                    LabeledContent("個人版模型") { Text("使用中（只存在這台 Mac）") }
+                }
                 LabeledContent("大小") { Text(model.modelSizeText) }
                 LabeledContent("執行時記憶體") { Text("約 1.3 GB，閒置 5 分鐘後釋放") }
                 if let progress = model.downloadProgress {

@@ -42,6 +42,7 @@ final class AppModel: ObservableObject {
 
     // AI
     @Published private(set) var modelInstalled = false
+    @Published private(set) var personalModelInstalled = false
     @Published private(set) var downloadProgress: Double?
     @Published var offerModelDownload = false
 
@@ -69,6 +70,7 @@ final class AppModel: ObservableObject {
             return value.map { CFBooleanGetValue(Unmanaged<CFBoolean>.fromOpaque($0).takeUnretainedValue()) } ?? false
         } ?? false
         modelInstalled = downloader.isInstalled
+        personalModelInstalled = FileManager.default.fileExists(atPath: paths.models.appendingPathComponent(HelperClient.personalFolderName).appendingPathComponent("model.safetensors").path)
         dictionary = paths.loadDictionary()
         let state = (try? Data(contentsOf: paths.learning)).flatMap { try? JSONDecoder().decode(Learner.State.self, from: $0) }
         favourites = (state?.boosts.values.filter { $0.picks >= 2 } ?? []).sorted { ($0.picks, $0.word) > ($1.picks, $1.word) }
