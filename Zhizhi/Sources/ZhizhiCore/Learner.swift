@@ -96,6 +96,17 @@ public final class Learner {
         public var picks: Int
     }
 
+    /// How word-like a multi-character string is, from the local model's log-probabilities: the whole string
+    /// against its characters taken alone, per extra character. Measured on eval/judge_*.txt: at 10 about half
+    /// of real terms pass and about one fragment in twelve does, so a pass only speeds a word up.
+    public static let unitThreshold: Float = 10
+    public static func unitness(whole: Float, characters: [Float]) -> Float {
+        guard characters.count >= 2 else { return -Float.infinity }
+        return (whole - characters.reduce(0, +)) / Float(characters.count - 1)
+    }
+    /// Asks whether a new phrase looks like a word (on-device only). Nil when no model can answer.
+    public var judge: ((String, @escaping (Bool) -> Void) -> Void)?
+
     public private(set) var dictionary: PersonalDictionary
     public private(set) var state: State
     private var unsaved: [PersonalDictionary.Entry] = []
@@ -170,8 +181,15 @@ public final class Learner {
 
     /// Characters picked one by one and next to each other: probably a word the lexicon lacks.
     public func pickedPhrase(text: String, reading: String) {
-        guard text.count >= 2, !lexicon.hasEntry(word: text, reading: reading), count(text) >= Self.phraseThreshold else { return }
-        add(PersonalDictionary.Entry(text: text, reading: reading, source: .auto, added: clock()))
+        guard text.count >= 2, !lexicon.hasEntry(word: text, reading: reading) else { return }
+        let seen = count(text)
+        let entry = PersonalDictionary.Entry(text: text, reading: reading, source: .auto, added: clock())
+        if seen >= Self.phraseThreshold { add(entry); return }
+        // First time: a phrase the model finds word-like is added at once instead of waiting for a second pick.
+        judge?(text) { [weak self] looksLikeAWord in
+            guard looksLikeAWord else { return }
+            DispatchQueue.main.async { self?.add(entry) }
+        }
     }
 
     /// An English word that was committed. Known words and likely misspellings are ignored.

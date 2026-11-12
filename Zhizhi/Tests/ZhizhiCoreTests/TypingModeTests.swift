@@ -9,6 +9,25 @@ final class TypingModeTests: XCTestCase {
         return mode.flagsChanged(keyCode: TypingMode.leftShiftKeyCode, shift: false, composing: composing, now: start.addingTimeInterval(held))
     }
 
+    func testEnglishModeReturnsToChineseAfterIdle() {
+        var mode = TypingMode()
+        mode.englishIdleLimit = 60
+        _ = tap(&mode, composing: false)
+        XCTAssertTrue(mode.englishMode)
+        XCTAssertFalse(mode.expireEnglishIfIdle(now: start.addingTimeInterval(30)))   // typing keeps it alive
+        XCTAssertFalse(mode.expireEnglishIfIdle(now: start.addingTimeInterval(80)))   // 50 s since the last key
+        XCTAssertTrue(mode.expireEnglishIfIdle(now: start.addingTimeInterval(150)))   // 70 s idle
+        XCTAssertFalse(mode.englishMode)
+        XCTAssertFalse(mode.expireEnglishIfIdle(now: start.addingTimeInterval(400)))
+    }
+    func testIdleLimitZeroKeepsEnglish() {
+        var mode = TypingMode()
+        mode.englishIdleLimit = 0
+        _ = tap(&mode, composing: false)
+        XCTAssertFalse(mode.expireEnglishIfIdle(now: start.addingTimeInterval(9999)))
+        XCTAssertTrue(mode.englishMode)
+    }
+
     func testCapsIsCapitalsNotALanguageSwitch() {
         var mode = TypingMode()
         XCTAssertEqual(mode.syncCaps(true), .capsChanged(true))

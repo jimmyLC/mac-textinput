@@ -235,6 +235,22 @@ final class LearnerTests: XCTestCase {
         XCTAssertTrue(lexicon.hasEntry(word: "品瑞", reading: "ㄆㄧㄣˇ-ㄖㄨㄟˋ"))
         XCTAssertEqual(decoder.render(decoder.decode("qup3bjo4")), "品瑞")
     }
+    func testAWordLikePhraseIsAddedOnTheFirstPickWhenTheModelAgrees() {
+        let (learner, _, _) = make()
+        var asked: [String] = []
+        learner.judge = { text, done in asked.append(text); done(text == "品瑞") }
+        let added = expectation(description: "added")
+        learner.onChange = { if !learner.dictionary.entries.isEmpty { added.fulfill() } }
+        learner.pickedPhrase(text: "品瑞", reading: "ㄆㄧㄣˇ-ㄖㄨㄟˋ")
+        learner.pickedPhrase(text: "天打", reading: "ㄊㄧㄢ-ㄉㄚˇ")
+        wait(for: [added], timeout: 2)
+        XCTAssertEqual(learner.dictionary.entries.map(\.text), ["品瑞"])
+        XCTAssertEqual(asked, ["品瑞", "天打"])
+    }
+    func testUnitnessComparesAStringWithItsCharacters() {
+        XCTAssertEqual(Learner.unitness(whole: -20, characters: [-8, -7, -9]), 2, accuracy: 0.001)
+        XCTAssertEqual(Learner.unitness(whole: -5, characters: [-5]), -Float.infinity)
+    }
     func testDeletedWordIsNeverRelearned() {
         let (learner, _, _) = make()
         for _ in 0..<3 { learner.committed(english: "Zhizhi") }

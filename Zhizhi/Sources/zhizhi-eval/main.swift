@@ -119,6 +119,41 @@ case "ai":
         print("tau \(threshold): exact \(exact)/\(runs.count) (\(exact * 100 / max(runs.count, 1))%); fixed \(fixed)/\(wrongBefore); broken \(broken)/\(rightBefore)")
         if threshold == 2 { failures.forEach { print("  " + $0) } }
     }
+case "judge":
+    // zhizhi-eval <root> judge <helper> <model>: does the model tell words apart from fragments (eval/judge_good.txt, judge_bad.txt)?
+    let client = HelperClient(executable: URL(fileURLWithPath: args[3]), model: URL(fileURLWithPath: args[4]))
+    func scored(_ texts: [String]) -> [Float] {
+        let done = DispatchSemaphore(value: 0)
+        var result: [Float] = []
+        client.score(texts) { result = $0 ?? []; done.signal() }
+        done.wait()
+        return result
+    }
+    func load(_ name: String) -> [String] {
+        (try! String(contentsOf: URL(fileURLWithPath: root + "/eval/" + name), encoding: .utf8)).split(separator: "\n").map(String.init)
+    }
+    let mode = args.count > 5 ? args[5] : "unit"
+    func unit(_ word: String) -> Float {
+        switch mode {
+        case "pmi":
+            let s = scored([word] + word.map { String($0) })
+            return (s[0] - s.dropFirst().reduce(0, +)) / Float(word.count - 1)
+        case "frame":
+            let frame = "這個東西叫做"
+            let s = scored([frame + word, frame])
+            return (s[0] - s[1]) / Float(word.count)
+        default:
+            let s = scored([word, String(word.first!)])
+            return (s[0] - s[1]) / Float(word.count - 1)
+        }
+    }
+    let good = load("judge_good.txt").map { ($0, unit($0)) }, bad = load("judge_bad.txt").map { ($0, unit($0)) }
+    let all = (good + bad).map { $0.1 }.sorted()
+    for t in stride(from: 0, to: all.count, by: all.count / 8).map({ all[$0] }) {
+        print(String(format: "threshold %.1f: words kept %d/%d, fragments kept %d/%d", t, good.filter { $0.1 >= t }.count, good.count, bad.filter { $0.1 >= t }.count, bad.count))
+    }
+    print("lowest words:", good.sorted { $0.1 < $1.1 }.prefix(6).map { "\($0.0) \(String(format: "%.1f", $0.1))" }.joined(separator: ", "))
+    print("highest fragments:", bad.sorted { $0.1 > $1.1 }.prefix(6).map { "\($0.0) \(String(format: "%.1f", $0.1))" }.joined(separator: ", "))
 case "apple":
     // zhizhi-eval <root> apple: the sentence set through Apple's on-device model, as the input method uses it.
     struct Row: Decodable { let gold: String; let syllables: [String] }

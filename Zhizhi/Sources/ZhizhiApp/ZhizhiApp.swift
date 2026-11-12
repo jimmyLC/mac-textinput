@@ -320,6 +320,13 @@ struct PreferencesPage: View {
                     Text("右 Shift").tag(Settings.SwitchKey.rightShift)
                     Text("不使用").tag(Settings.SwitchKey.none)
                 }
+                Picker("英文模式閒置後自動回中文", selection: $model.settings.englishIdleSeconds) {
+                    Text("不自動切回").tag(0)
+                    Text("30 秒").tag(30)
+                    Text("1 分鐘").tag(60)
+                    Text("2 分鐘").tag(120)
+                    Text("5 分鐘").tag(300)
+                }
                 Toggle("中英文之間自動空格", isOn: $model.settings.autoSpace)
                 Picker("標點寬度", selection: $model.settings.punctuation) {
                     Text("跟著前面的文字").tag(Settings.PunctuationWidth.follow)
@@ -379,6 +386,9 @@ struct AIPage: View {
             Section("Qwen 模型") {
                 LabeledContent("Qwen2.5-1.5B 口語微調版") {
                     Text(model.modelInstalled ? "已安裝" : "尚未安裝").foregroundStyle(model.modelInstalled ? Color.secondary : Color.orange)
+                }
+                if model.personalModelInstalled {
+                    LabeledContent("個人版模型") { Text("使用中（只存在這台 Mac）") }
                 }
                 LabeledContent("大小") { Text(model.modelSizeText) }
                 LabeledContent("執行時記憶體") { Text("約 1.3 GB，閒置 5 分鐘後釋放") }

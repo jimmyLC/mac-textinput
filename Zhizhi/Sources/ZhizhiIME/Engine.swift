@@ -5,7 +5,7 @@ import ZhizhiCore
 final class Engine {
     static let shared = Engine()
     /// A swap must raise the sentence's log-probability by this much (eval/README.md).
-    static let correctionThreshold: Float = 2.5
+    static let correctionThreshold: Float = 2.0
     let paths = ZhizhiPaths()
     private(set) var settings = Settings(defaults: Settings.sharedDefaults)
 
@@ -13,7 +13,8 @@ final class Engine {
     private(set) var learner: Learner?
     private lazy var qwen = HelperClient(
         executable: Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/zhizhi-ai"),
-        model: paths.models.appendingPathComponent(ModelManifest.qwen.name))
+        model: paths.models.appendingPathComponent(ModelManifest.qwen.name),
+        personal: paths.models.appendingPathComponent(HelperClient.personalFolderName))
     private let apple = AppleModelBackend()
     /// The model the owner chose. If it cannot run, there are no corrections: it never quietly uses the other.
     var ai: CorrectionBackend { settings.aiModel == .apple ? apple : qwen }
@@ -37,6 +38,13 @@ final class Engine {
         let state = (try? Data(contentsOf: paths.learning)).flatMap { try? JSONDecoder().decode(Learner.State.self, from: $0) }
         let learner = Learner(lexicon: lexicon, dictionary: paths.loadDictionary(), state: state ?? Learner.State())
         learner.onChange = { [weak self] in self?.scheduleSave() }
+        learner.judge = { [weak self] text, done in
+            guard let self, self.settings.aiCorrections, self.settings.aiModel == .qwen, self.qwen.isAvailable else { return }
+            self.qwen.score([text] + text.map(String.init)) { scores in
+                guard let scores, scores.count == text.count + 1 else { return }
+                done(Learner.unitness(whole: scores[0], characters: Array(scores.dropFirst())) >= Learner.unitThreshold)
+            }
+        }
         self.learner = learner
         decoder = Decoder(lexicon: lexicon)
         settings.apply(to: decoder)
