@@ -67,6 +67,12 @@ final class DecoderTests: XCTestCase {
         XCTAssertEqual(text("su3cl3 10%"), "你好 10%")
         XCTAssertEqual(text("su3cl3283"), text("su3cl3283"), "digits without a percent sign are untouched")
     }
+    func testDecimalNumbersBeforeAUnit() {
+        XCTAssertEqual(text("1.5j04"), "1.5萬")
+        XCTAssertEqual(text("su3cl31.5j04"), "你好1.5萬")
+        XCTAssertEqual(text("3.14"), "3.14")
+        XCTAssertEqual(kinds("2.4"), [.chinese], "a tone key after the dot keeps the Zhuyin reading")
+    }
     func testListMarker() {
         XCTAssertEqual(text("2."), "2.")
         XCTAssertEqual(text("2. "), "2. ")

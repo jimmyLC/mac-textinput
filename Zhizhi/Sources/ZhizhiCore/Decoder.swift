@@ -444,6 +444,7 @@ public final class Decoder {
         englishEdges(from: i, keys: keys, context: context, into: &out)
         tokenEdges(from: i, keys: keys, into: &out)
         numberEdge(from: i, keys: keys, into: &out)
+        decimalEdge(from: i, keys: keys, into: &out)
         listMarkerEdge(from: i, keys: keys, into: &out)
         literalEdge(from: i, keys: keys, context: context, into: &out)
         return out.filter { edge in
@@ -641,6 +642,19 @@ public final class Decoder {
               i == 0 || keys[i - 1] == " ",
               i + 2 == keys.count || keys[i + 2] == " " else { return }
         out.append(Edge(end: i + 2, kind: .other, text: String(keys[i...(i + 1)]), cost: costs.listMarker, keepsLanguage: true))
+    }
+
+    /// "1.5" is a decimal number ("1.5萬"), not ㄅㄡㄓ. When the digit after the dot is a tone key ("2.4") the
+    /// Zhuyin reading stays possible, so that case is left to the normal edges.
+    private func decimalEdge(from i: Int, keys: [Character], into out: inout [Edge]) {
+        guard keys[i].isASCII, keys[i].isNumber else { return }
+        var dot = i
+        while dot < keys.count, keys[dot].isASCII, keys[dot].isNumber { dot += 1 }
+        guard dot > i, dot + 1 < keys.count, keys[dot] == ".", keys[dot + 1].isASCII, keys[dot + 1].isNumber,
+              !"3467".contains(keys[dot + 1]) else { return }
+        var end = dot + 1
+        while end < keys.count, keys[end].isASCII, keys[end].isNumber { end += 1 }
+        out.append(Edge(end: end, kind: .other, text: String(keys[i..<end]), cost: costs.number - 2, keepsLanguage: true))
     }
 
     private func numberEdge(from i: Int, keys: [Character], into out: inout [Edge]) {
