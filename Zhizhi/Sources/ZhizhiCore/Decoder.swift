@@ -217,11 +217,12 @@ public final class Decoder {
     /// and a letter the user flipped to English (Shift) is English, not a stray.
     private static func dropStrayLetters(_ segments: [Segment]) -> [Segment] {
         var out = segments
-        for i in out.indices where i > 0 && i < out.count - 1 {
+        for i in out.indices where i < out.count - 1 {
             let s = out[i]
+            // Between two Chinese parts, or first with Chinese right after it ("r" typed before "盡量").
             guard s.kind == .other, s.range.count == 1, s.text.count == 1, let c = s.text.first,
                   c.isASCII, c.isLetter, c.isLowercase,
-                  out[i - 1].kind == .chinese, out[i + 1].kind == .chinese else { continue }
+                  i == 0 || out[i - 1].kind == .chinese, out[i + 1].kind == .chinese else { continue }
             out[i].text = ""
         }
         return out

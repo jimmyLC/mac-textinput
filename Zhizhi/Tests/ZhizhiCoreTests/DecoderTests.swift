@@ -67,6 +67,11 @@ final class DecoderTests: XCTestCase {
         XCTAssertEqual(text("su3cl3 10%"), "你好 10%")
         XCTAssertEqual(text("su3cl3283"), text("su3cl3283"), "digits without a percent sign are untouched")
     }
+    func testStrayLetterBeforeTheFirstWordIsDropped() {
+        XCTAssertEqual(text("rrup4"), text("rup4"))
+        XCTAssertEqual(text("rsu3cl3"), "你好")
+        XCTAssertEqual(text("rup4"), text("rup4"), "a real syllable is never dropped")
+    }
     func testDecimalNumbersBeforeAUnit() {
         XCTAssertEqual(text("1.5j04"), "1.5萬")
         XCTAssertEqual(text("su3cl31.5j04"), "你好1.5萬")
