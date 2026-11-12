@@ -20,3 +20,7 @@ data/.cache/
 # Python 快取
 __pycache__/
 *.pyc
+
+# Python 訓練環境與模型產物
+Zhizhi/.venv/
+Zhizhi/training/work/
