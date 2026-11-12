@@ -257,6 +257,14 @@ final class ModelDownloaderTests: XCTestCase {
         XCTAssertTrue(downloader.isInstalled)
         XCTAssertEqual(try String(contentsOf: target.appendingPathComponent("model.safetensors"), encoding: .utf8), "weights")
     }
+    func testJoinsPiecesIntoOneFile() throws {
+        let manifest = ModelManifest(name: "m", baseURL: source, files: [try file("model.safetensors.part1", "wei"), try file("model.safetensors.part2", "ghts")],
+                                     assemble: ["model.safetensors": ["model.safetensors.part1", "model.safetensors.part2"]])
+        let downloader = ModelDownloader(manifest: manifest, folder: target)
+        if case .failure(let error) = run(downloader) { XCTFail("\(error)") }
+        XCTAssertEqual(try String(contentsOf: target.appendingPathComponent("model.safetensors"), encoding: .utf8), "weights")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: target.appendingPathComponent("model.safetensors.part1").path))
+    }
     func testWrongHashNeverLooksInstalled() throws {
         var bad = try file("model.safetensors", "weights")
         bad.sha256 = String(repeating: "0", count: 64)
@@ -277,7 +285,9 @@ final class ModelDownloaderTests: XCTestCase {
     }
     func testBundledManifestCoversWhatTheHelperLoads() {
         let names = Set(ModelManifest.qwen.files.map(\.name))
-        XCTAssertTrue(names.isSuperset(of: ["config.json", "model.safetensors", "tokenizer.json", "tokenizer_config.json"]))
+        XCTAssertTrue(names.isSuperset(of: ["config.json", "tokenizer.json", "tokenizer_config.json"]))
+        XCTAssertEqual(ModelManifest.qwen.assemble.keys.sorted(), ["model.safetensors"])
+        XCTAssertTrue(names.isSuperset(of: ModelManifest.qwen.assemble["model.safetensors"] ?? ["x"]))
         XCTAssertGreaterThan(ModelManifest.qwen.totalSize, 800_000_000)
     }
 }

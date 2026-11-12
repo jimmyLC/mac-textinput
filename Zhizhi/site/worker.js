@@ -22,7 +22,7 @@ async function download(request, env) {
   if (!object?.body || object.size !== asset.bytes) return new Response('Download temporarily unavailable', { status: 503 });
   return new Response(request.method === 'HEAD' ? null : object.body, {
     headers: {
-      'Content-Type': name.endsWith('.dmg') ? 'application/x-apple-diskimage' : name.endsWith('.zip') ? 'application/zip' : 'text/plain; charset=utf-8',
+      'Content-Type': name.endsWith('.dmg') ? 'application/x-apple-diskimage' : name.endsWith('.zip') ? 'application/zip' : name.endsWith('.json') ? 'application/json' : name.endsWith('.txt') ? 'text/plain; charset=utf-8' : 'application/octet-stream',
       'Content-Disposition': `attachment; filename="${name}"`,
       'Content-Length': String(object.size),
       'Cache-Control': 'public, max-age=86400, immutable',

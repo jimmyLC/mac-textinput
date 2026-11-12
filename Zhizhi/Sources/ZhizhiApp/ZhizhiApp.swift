@@ -377,7 +377,7 @@ struct AIPage: View {
                 LabeledContent("大小與記憶體") { Text("由系統管理，知之不另外占用") }
             }
             Section("Qwen 模型") {
-                LabeledContent("Qwen2.5-1.5B-4bit") {
+                LabeledContent("Qwen2.5-1.5B 口語微調版") {
                     Text(model.modelInstalled ? "已安裝" : "尚未安裝").foregroundStyle(model.modelInstalled ? Color.secondary : Color.orange)
                 }
                 LabeledContent("大小") { Text(model.modelSizeText) }

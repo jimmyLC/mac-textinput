@@ -389,7 +389,7 @@ footer { border-top: 1px solid var(--line); padding-block: 28px 44px; display: f
 (function () {
   var buttons = document.querySelectorAll('.dl'), note = document.getElementById('dl-note');
   fetch('/releases.json', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (all) {
-    var versions = Object.keys(all);
+    var versions = Object.keys(all).filter(function (k) { return /^v\d/.test(k); });
     var latest = versions[versions.length - 1];
     var file = latest && Object.keys(all[latest]).filter(function (n) { return /\.dmg$/.test(n); })[0];
     if (!file) throw new Error('none');
