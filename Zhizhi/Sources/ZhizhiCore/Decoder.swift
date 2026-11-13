@@ -400,6 +400,14 @@ public final class Decoder {
         return syllables.joined(separator: "-")
     }
 
+    /// A simplified form (体 for 體): the lexicon holds a few, and the model scores them well, so the AI must
+    /// never swap one in. Characters that also convert to something else in Traditional (后, 干) are skipped too.
+    static func isSimplifiedForm(_ character: Character) -> Bool {
+        let s = String(character)
+        guard let traditional = s.applyingTransform(StringTransform("Hans-Hant"), reverse: false) else { return false }
+        return traditional != s
+    }
+
     /// Same-sound single characters for one syllable, most likely first. Exact tone when typed;
     /// only characters that also occur inside words, which drops rare and simplified forms.
     func alternatives(keys: [Character], range: Range<Int>) -> [Character] {
@@ -408,7 +416,8 @@ public final class Decoder {
         var result: [Character] = []
         for entry in lexicon.nodes[Int(node)].entries where entry.word.count == 1 {
             guard span.tone == Zhuyin.Tone.none || entry.tones[0] == span.tone,
-                  let character = entry.word.first, lexicon.charactersInWords.contains(character) else { continue }
+                  let character = entry.word.first, lexicon.charactersInWords.contains(character),
+                  !Self.isSimplifiedForm(character) else { continue }
             result.append(character)
             if result.count == Self.alternativesPerCharacter { break }
         }

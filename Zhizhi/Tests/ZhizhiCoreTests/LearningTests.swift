@@ -19,6 +19,25 @@ final class CorrectionTests: XCTestCase {
         return Decoder(lexicon: lexicon)
     }
 
+    func testAIAlternativesNeverIncludeSimplifiedForms() throws {
+        let lexicon = Lexicon()
+        lexicon.loadChinese(tsv: """
+        整體\t-5\tㄓㄥˇ-ㄊㄧˇ
+        整体\t-9\tㄓㄥˇ-ㄊㄧˇ
+        體\t-5\tㄊㄧˇ
+        体\t-9\tㄊㄧˇ
+        整\t-5\tㄓㄥˇ
+        """)
+        lexicon.loadEnglish(text: "the\n")
+        let decoder = Decoder(lexicon: lexicon)
+        let keys = Array("5/ 3wu3".replacingOccurrences(of: " ", with: ""))
+        let plan = decoder.correctionPlan(keys: keys, segments: decoder.decode(keys: keys))
+        XCTAssertFalse((plan?.texts ?? []).contains { $0.contains("体") || $0.contains("体") }, "texts: \(plan?.texts ?? [])")
+        XCTAssertTrue(Decoder.isSimplifiedForm("体"))
+        XCTAssertTrue(Decoder.isSimplifiedForm("联"))
+        XCTAssertFalse(Decoder.isSimplifiedForm("體"))
+        XCTAssertFalse(Decoder.isSimplifiedForm("字"))
+    }
     func testPlanTriesSameSoundCharactersOnly() throws {
         let decoder = makeDecoder()
         let keys = Array("su3cl3")
