@@ -14,6 +14,7 @@ final class CorrectionTests: XCTestCase {
         好\t-3\tㄏㄠˇ
         郝\t-7\tㄏㄠˇ
         郝市\t-9\tㄏㄠˇ-ㄕˋ
+        你郝\t-9\tㄋㄧˇ-ㄏㄠˇ
         """)
         lexicon.loadEnglish(text: "hello\nworld\nthe\n")
         return Decoder(lexicon: lexicon)
@@ -38,6 +39,32 @@ final class CorrectionTests: XCTestCase {
         XCTAssertFalse(Decoder.isSimplifiedForm("體"))
         XCTAssertFalse(Decoder.isSimplifiedForm("字"))
     }
+    func testSwapsInsideAKnownWordNeedMoreEvidenceAndNeverComeInPairs() throws {
+        let lexicon = Lexicon()
+        lexicon.loadChinese(tsv: """
+        連結\t-4\tㄌㄧㄢˊ-ㄐㄧㄝˊ
+        聯結\t-5\tㄌㄧㄢˊ-ㄐㄧㄝˊ
+        連\t-4\tㄌㄧㄢˊ
+        聯\t-4\tㄌㄧㄢˊ
+        結\t-4\tㄐㄧㄝˊ
+        捷\t-4\tㄐㄧㄝˊ
+        """)
+        lexicon.loadEnglish(text: "the\n")
+        let decoder = Decoder(lexicon: lexicon)
+        let typed = Array("xu06ru,6")   // ㄌㄧㄢˊ ㄐㄧㄝˊ
+        let segments = decoder.decode(keys: typed)
+        guard let plan = decoder.correctionPlan(keys: typed, segments: segments) else { return XCTFail("no plan") }
+        XCTAssertEqual(plan.texts.first, "連結")
+        // Every swap gains 3: enough alone (threshold 2) but not for a known word (2 + margin 2).
+        let scores = [Float(0)] + plan.swaps.map { _ in Float(3) }
+        XCTAssertTrue(decoder.corrections(plan: plan, logprobs: scores, threshold: 2).isEmpty)
+        // A gain of 5 clears the margin, but only one character of the word changes.
+        let strong = [Float(0)] + plan.swaps.map { _ in Float(5) }
+        let result = decoder.corrections(plan: plan, logprobs: strong, threshold: 2)
+        for constraint in result {
+            if case .text(let text, _) = constraint.fix { XCTAssertEqual(zip(text, "連結").filter { $0 != $1 }.count, 1, text) }
+        }
+    }
     func testPlanTriesSameSoundCharactersOnly() throws {
         let decoder = makeDecoder()
         let keys = Array("su3cl3")
@@ -49,8 +76,8 @@ final class CorrectionTests: XCTestCase {
         let decoder = makeDecoder()
         let keys = Array("su3cl3")
         let plan = try XCTUnwrap(decoder.correctionPlan(keys: keys, segments: decoder.decode(keys: keys)))
-        let scores = plan.texts.map { $0 == "你郝" ? Float(-8) : Float(-10) }
-        XCTAssertTrue(decoder.corrections(plan: plan, logprobs: scores, threshold: 2.5).isEmpty)
+        let scores = plan.texts.map { $0 == "你郝" ? Float(-5) : Float(-10) }   // gain 5; a known word needs threshold + 2
+        XCTAssertTrue(decoder.corrections(plan: plan, logprobs: scores, threshold: 3.5).isEmpty)
         let found = decoder.corrections(plan: plan, logprobs: scores, threshold: 2)
         XCTAssertEqual(decoder.render(decoder.decode(keys: keys, constraints: found)), "你郝")
     }

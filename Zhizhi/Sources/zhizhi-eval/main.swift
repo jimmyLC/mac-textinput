@@ -78,7 +78,7 @@ case "sentences":
 case "ai":
     // zhizhi-eval <root> ai <helper executable> <model folder>: the sentence set through the real helper.
     struct Row: Decodable { let gold: String; let syllables: [String] }
-    let rows = try! JSONDecoder().decode([Row].self, from: Data(contentsOf: URL(fileURLWithPath: root + "/eval/baseline.json")))
+    let rows = try! JSONDecoder().decode([Row].self, from: Data(contentsOf: URL(fileURLWithPath: args.count > 5 ? args[5] : root + "/eval/baseline.json")))
     let client = HelperClient(executable: URL(fileURLWithPath: args[3]), model: URL(fileURLWithPath: args[4]))
     func scored(_ texts: [String]) -> [Float] {
         let done = DispatchSemaphore(value: 0)

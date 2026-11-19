@@ -16,6 +16,8 @@ public struct CorrectionPlan: Equatable {
 public extension Decoder {
     /// How many same-sound characters are tried per position.
     static let alternativesPerCharacter = 8
+    /// Extra log-probability a swap inside a known multi-character word has to gain.
+    static let knownWordMargin: Float = 2.0
 
     /// Everything still open to correction in `keys`; nil when there is nothing to try.
     func correctionPlan(keys: [Character], segments: [Segment]) -> CorrectionPlan? {
@@ -50,14 +52,22 @@ public extension Decoder {
         for (i, swap) in plan.swaps.enumerated() {
             let gain = logprobs[i + 1] - logprobs[0]
             let key = swap.segment << 16 | swap.character
-            if gain >= threshold, gain > best[key]?.gain ?? -.infinity { best[key] = (gain, swap) }
+            // A word the lexicon already knows needs clearer evidence before one of its characters is changed.
+            let original = plan.segments[swap.segment].text
+            let needed = threshold + (original.count >= 2 && lexicon.hasWord(original) ? Self.knownWordMargin : 0)
+            if gain >= needed, gain > best[key]?.gain ?? -.infinity { best[key] = (gain, swap) }
         }
         var bySegment: [Int: [CorrectionPlan.Swap]] = [:]
         for (_, value) in best { bySegment[value.swap.segment, default: []].append(value.swap) }
-        return bySegment.keys.sorted().map { index in
+        return bySegment.keys.sorted().compactMap { index -> Constraint? in
             let segment = plan.segments[index]
             var characters = Array(segment.text)
-            for swap in bySegment[index]! { characters[swap.character] = swap.replacement }
+            // Each swap was scored alone, so two swaps in one word were never scored together (連結 became 聯捷).
+            // Keep the one with the clearest gain, and for a word of two or more characters only accept a result
+            // that is a real word.
+            let swaps = bySegment[index]!.sorted { (best[$0.segment << 16 | $0.character]?.gain ?? 0) > (best[$1.segment << 16 | $1.character]?.gain ?? 0) }
+            if let swap = swaps.first { characters[swap.character] = swap.replacement }
+            if characters.count >= 2, String(characters) != segment.text, !lexicon.hasWord(String(characters)) { return nil }
             var constraint = Constraint(range: segment.range, fix: .text(String(characters), .chinese))
             constraint.syllableEnds = segment.syllableEnds.map { $0 - segment.range.lowerBound }
             constraint.correctedFrom = segment.text

@@ -74,7 +74,7 @@ public final class Decoder {
     public var commonWordsLonger = 60_000
     public var commonWordsTwoLetters = 3_000
 
-    private let lexicon: Lexicon
+    let lexicon: Lexicon
 
     public init(lexicon: Lexicon) { self.lexicon = lexicon }
 
