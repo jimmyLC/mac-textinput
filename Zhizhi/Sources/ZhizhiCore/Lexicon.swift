@@ -21,6 +21,9 @@ public final class Lexicon {
     private(set) var bestCompletion: [String: String] = [:]   // English prefix -> most frequent longer word
     private(set) var userEntries: [UserEntry] = []
     private(set) var charactersInWords: Set<Character> = []
+    private var wordIDs: Set<UInt32> = []
+    /// True when the lexicon (or the personal dictionary) has this word under any reading.
+    public func hasWord(_ word: String) -> Bool { wordIDs.contains(Self.wordID(word)) }
     private var originalScores: [String: Float] = [:]     // word + reading, before any boost
     private var pairKeys: [UInt64] = []                   // sorted: first word's id << 32 | second word's id
     private var pairScores: [Float] = []                  // log10 P(second | first), same order
@@ -320,6 +323,7 @@ public final class Lexicon {
             }
         }
         nodes[node].entries.append(Entry(word: word, score: score, tones: tones, id: Self.wordID(word)))
+        wordIDs.insert(Self.wordID(word))
     }
 
     private func baseID(_ base: String) -> UInt16 {
