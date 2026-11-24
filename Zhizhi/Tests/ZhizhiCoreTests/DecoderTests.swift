@@ -28,6 +28,19 @@ final class DecoderTests: XCTestCase {
         }
         XCTAssertTrue(["你好誒", "你好欸"].contains(text("su3cl3o ")))
     }
+    func testUnknownLongLetterRunStaysOneWord() {
+        // "viduck" used to split into "vidu" + a Chinese syllable; a 5+ letter run that is no word stays whole.
+        XCTAssertEqual(text("viduck"), "viduck")
+        XCTAssertEqual(text("ferrum"), "ferrum")
+        XCTAssertEqual(text("su3cl3"), "你好")   // toned Zhuyin is unaffected
+    }
+    func testCommitKeepsEnglishLettersNotBareSymbols() {
+        for word in ["tr", "fa"] {
+            var c = Composition()
+            for ch in word { c.insert(ch) }
+            XCTAssertEqual(c.commit(decoder), word)
+        }
+    }
     func testTonelessWord() { XCTAssertEqual(text("su cl").replacingOccurrences(of: " ", with: ""), text("su3cl3")) }
     func testEnglishWord() { XCTAssertEqual(text("hello"), "hello") }
     func testChineseWordsStayChinese() {

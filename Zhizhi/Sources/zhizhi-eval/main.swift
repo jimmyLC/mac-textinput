@@ -208,6 +208,16 @@ case "mixed":
     }
     print("mixed \(rows.count); exact \(exact); language split right \(englishRight)/\(englishTotal)")
     failures.forEach { print("  " + $0) }
+case "history":
+    // The owner's own sentence history, opened with his Keychain key. Writes one line per sentence to the
+    // path given (outside the repo); nothing leaves the machine.
+    guard args.count > 3, let key = Keychain.historyKey() else { print("usage: history <out.tsv> (needs the Keychain key)"); exit(2) }
+    let home = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/Zhizhi/history.enc")
+    let items = SentenceHistory(file: home, key: key).items().reversed()
+    let df = ISO8601DateFormatter()
+    let body = items.map { df.string(from: $0.date) + "\t" + $0.text.replacingOccurrences(of: "\n", with: " ") }.joined(separator: "\n")
+    try! body.write(toFile: args[3], atomically: true, encoding: .utf8)
+    print("wrote \(items.count) sentences")
 case "replay":
     let rx = try! NSRegularExpression(pattern: #"key=(\S+) composing=\S+ run=\S+ mode=(\S+) prevEn=\S+ -> (\S+)"#)
     var buffer: [Character] = []
