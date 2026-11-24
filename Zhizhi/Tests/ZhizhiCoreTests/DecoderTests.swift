@@ -20,6 +20,27 @@ final class DecoderTests: XCTestCase {
         XCTAssertEqual(text("ru4"), text("ur4"), "ㄐㄧˋ typed medial first")
         XCTAssertFalse(kinds("url4").contains(.english), "url4 is ㄐㄧㄠˋ, not English")
     }
+    func testInterjectionEi() {
+        // 誒/欸 read ㄟ in every tone: typing "o" must not stay a Latin letter.
+        for keys in ["o ", "o6", "o3", "o4"] {
+            let out = text(keys)
+            XCTAssertTrue(out == "誒" || out == "欸", "\(keys) -> \(out)")
+        }
+        XCTAssertTrue(["你好誒", "你好欸"].contains(text("su3cl3o ")))
+    }
+    func testUnknownLongLetterRunStaysOneWord() {
+        // "viduck" used to split into "vidu" + a Chinese syllable; a 5+ letter run that is no word stays whole.
+        XCTAssertEqual(text("viduck"), "viduck")
+        XCTAssertEqual(text("ferrum"), "ferrum")
+        XCTAssertEqual(text("su3cl3"), "你好")   // toned Zhuyin is unaffected
+    }
+    func testCommitKeepsEnglishLettersNotBareSymbols() {
+        for word in ["tr", "fa"] {
+            var c = Composition()
+            for ch in word { c.insert(ch) }
+            XCTAssertEqual(c.commit(decoder), word)
+        }
+    }
     func testTonelessWord() { XCTAssertEqual(text("su cl").replacingOccurrences(of: " ", with: ""), text("su3cl3")) }
     func testEnglishWord() { XCTAssertEqual(text("hello"), "hello") }
     func testChineseWordsStayChinese() {

@@ -45,6 +45,7 @@ public final class Decoder {
         public var englishPerRank: Float = 0.9     // times ln(rank + 1)
         public var unknownCapitalised: Float = 9.0
         public var unknownLowercase: Float = 30.0
+        public var unknownLongLowercase: Float = 9.0   // a lowercase run of 5+ letters that is no word, taken whole: "viduck" stays one name
         public var unknownAfterEnglish: Float = 13.0
         public var pendingSyllable: Float = 6.0
         public var pendingAfterEnglish: Float = 6.0   // extra: letters right after English are probably English
@@ -572,6 +573,7 @@ public final class Decoder {
         return cost
     }
 
+    static let longRunLength = 5
     private func englishEdges(from i: Int, keys: [Character], context: Segment.Kind, into out: inout [Edge]) {
         guard keys[i].isASCII, keys[i].isLetter else { return }
         var j = i
@@ -612,8 +614,12 @@ public final class Decoder {
             }
             // Not a word: a last resort so that nothing is ever undecodable.
             if atWordEnd {
-                let base = context == .english ? costs.unknownAfterEnglish : costs.unknownLowercase
-                out.append(Edge(end: j, kind: .english, text: word, cost: base + Float(length)))
+                var base = context == .english ? costs.unknownAfterEnglish : costs.unknownLowercase
+                // A whole run of letters (no tone key, digit or space) is rarely Chinese: keep it in one piece
+                // instead of cutting an English name into a word and a stray syllable.
+                let startsRun = i == 0 || !(keys[i - 1].isASCII && keys[i - 1].isLetter)
+                if startsRun, length >= Self.longRunLength, atWordEnd, j == keys.count || !keys[j].isASCII { base = min(base, costs.unknownLongLowercase) }
+                out.append(Edge(end: j, kind: .english, text: word, cost: base + Float(length) * (base == costs.unknownLongLowercase ? 1.5 : 1)))
             }
         }
     }

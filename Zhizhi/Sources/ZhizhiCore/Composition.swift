@@ -172,6 +172,11 @@ public struct Composition {
             } else if let word = decoder.bestCharacter(keys: Array(typed)) {
                 pieces[pieces.count - 1].text = word
                 pieces[pieces.count - 1].kind = .chinese
+            } else if pieces.count > 1, typed.allSatisfy({ $0.isASCII && $0.isLetter }),
+                      pieces[pieces.count - 2].text.last.map({ $0.isASCII && $0.isLetter }) == true {
+                // "tr", "fa", "ja": letters after a letter that no Chinese reading takes are English, not bare Zhuyin symbols.
+                pieces[pieces.count - 1].text = String(typed)
+                pieces[pieces.count - 1].kind = .other
             }
         }
         let text = decoder.render(pieces)
