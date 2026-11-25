@@ -101,9 +101,10 @@ final class DecoderTests: XCTestCase {
     }
     func testListMarker() {
         XCTAssertEqual(text("2."), "2.")
-        XCTAssertEqual(text("2. "), "2. ")
+        XCTAssertEqual(text("2. "), "都", "first-tone ㄉㄡ ends the typing: it is 都, not a list number")
+        XCTAssertEqual(text("2. su3"), "2. 你", "text after the space makes it a list number")
         XCTAssertEqual(text("3. "), "3. ")
-        XCTAssertEqual(text("su3cl3 2. "), "你好 2. ")
+        XCTAssertEqual(text("su3cl3 2. su3"), "你好 2. 你")
         XCTAssertEqual(kinds("2.4"), [.chinese], "ㄉㄡˋ stays Zhuyin")
         XCTAssertEqual(text("5. ai4"), "週末", "ㄓㄡ followed by more syllables is still a word")
     }

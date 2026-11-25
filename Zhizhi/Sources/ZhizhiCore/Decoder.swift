@@ -657,6 +657,9 @@ public final class Decoder {
         guard keys[i].isASCII, keys[i].isNumber, i + 1 < keys.count, keys[i + 1] == ".",
               i == 0 || keys[i - 1] == " ",
               i + 2 == keys.count || keys[i + 2] == " " else { return }
+        // "2." and a space that ends the typing is the first-tone syllable ㄉㄡ (都) when a character has that
+        // sound: only text that follows the space makes it a list number.
+        if i + 3 == keys.count, keys[i + 2] == " ", bestCharacterAnyTone(Array(keys[i...(i + 1)])) != nil { return }
         out.append(Edge(end: i + 2, kind: .other, text: String(keys[i...(i + 1)]), cost: costs.listMarker, keepsLanguage: true))
     }
 
