@@ -111,5 +111,12 @@
       "bytes": 21752716,
       "sha256": "cf77fc9a6a88dc64f4060f27e39d309c603f381b58fa5ebbd3f57ab2403707b2"
     }
+  },
+  "v0.2.7": {
+    "Zhizhi-macos.dmg": {
+      "name": "Zhizhi-macos.dmg",
+      "bytes": 21753096,
+      "sha256": "556527804f1d5e6b52ccee30f4f4a8f4daaeb55bd1253f6486a2d3b63e9c457f"
+    }
   }
 }
