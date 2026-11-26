@@ -92,11 +92,13 @@ public final class Session {
         return finish(&output)
     }
 
-    /// The character before the caret in the app, when it can tell; used at the start of a buffer.
+    /// The character before the caret in the app, when it can tell ("\n" at the very start of the text);
+    /// used at the start of a buffer.
     public func setPreviousCharacter(_ character: Character?) {
         previousCharacter = character
         guard composition.isEmpty else { return }
         composition.leading = Self.language(of: character)
+        composition.startsLine = character?.isNewline == true
     }
 
     private static func language(of character: Character?) -> Segment.Kind {
@@ -125,6 +127,7 @@ public final class Session {
         }
         previousCharacter = text.last
         composition.leading = Self.language(of: previousCharacter)
+        composition.startsLine = previousCharacter?.isNewline == true
         return text
     }
 
@@ -148,7 +151,8 @@ public final class Session {
             let previous = at.flatMap { $0 > 0 && segments[$0 - 1].kind == .chinese ? segments[$0 - 1].text : nil }
             let next = at.flatMap { $0 + 1 < segments.count && segments[$0 + 1].kind == .chinese ? segments[$0 + 1].text : nil }
             if previous != nil || next != nil {
-                let without = decoder.decode(keys: keys, constraints: composition.constraints.filter { $0 != c }, leading: composition.leading)
+                let without = decoder.decode(keys: keys, constraints: composition.constraints.filter { $0 != c }, leading: composition.leading,
+                                           startsLine: composition.startsLine)
                 let replaced = without.first { $0.range == c.range && $0.kind == .chinese }?.text
                 learner.pickedBetween(word: text, previous: previous, next: next, replaced: replaced)
             } else if let reading = decoder.reading(of: text, keys: keys, range: c.range) {

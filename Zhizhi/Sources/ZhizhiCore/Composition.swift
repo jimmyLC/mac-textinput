@@ -8,6 +8,8 @@ public struct Composition {
     public private(set) var constraints: [Constraint] = []
     /// Language of the text just before this buffer in the app.
     public var leading: Segment.Kind = .other
+    /// Whether this buffer begins a line in the app, where "2." can be a list number.
+    public var startsLine = true
 
     /// Sentence-ending punctuation commits the buffer.
     private static let committingKeys: Set<Character> = ["<", ">", "?", "!"]
@@ -17,7 +19,9 @@ public struct Composition {
 
     public var isEmpty: Bool { keys.isEmpty }
 
-    public func segments(_ decoder: Decoder) -> [Segment] { decoder.decode(keys: keys, constraints: constraints, leading: leading) }
+    public func segments(_ decoder: Decoder) -> [Segment] {
+        decoder.decode(keys: keys, constraints: constraints, leading: leading, startsLine: startsLine)
+    }
 
     /// Display text and the caret's offset (UTF-16) inside it.
     public func rendered(_ decoder: Decoder) -> (text: String, caret: Int) {
@@ -207,6 +211,7 @@ public struct Composition {
             return moved
         }
         cursor = max(0, cursor - end)
+        startsLine = false
         return text
     }
 }

@@ -277,11 +277,12 @@ final class ZhizhiInputController: IMKInputController {
         return rect
     }
 
-    /// The character before the caret, when the app reports it.
+    /// The character before the caret, when the app reports it; "\n" at the very start of the text.
     private func characterBeforeCaret(client: Any!) -> Character? {
         guard let text = client as? IMKTextInput else { return nil }
         let caret = text.selectedRange()
-        guard caret.location != NSNotFound, caret.location > 0 else { return nil }
+        guard caret.location != NSNotFound else { return nil }
+        guard caret.location > 0 else { return "\n" }
         return text.attributedSubstring(from: NSRange(location: caret.location - 1, length: 1))?.string.first
     }
 
