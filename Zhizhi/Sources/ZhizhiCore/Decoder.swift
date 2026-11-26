@@ -63,7 +63,7 @@ public final class Decoder {
         public var complementDe: Float = 2.5          // 跑得 then 很快: the complement reading of 得
         public var beam: Float = 18.0                 // readings this much worse than the best so far are dropped
         public var wordsPerSpan = 5                   // same-sound words kept per stretch of keys, for pairs to choose among
-        public var listMarker: Float = 2.0            // "2." at the start of a line or after a space, as in a numbered list
+        public var listMarker: Float = 2.0            // "2." as a list number rather than Zhuyin
         public init() {}
     }
 
@@ -118,7 +118,9 @@ public final class Decoder {
     }
 
     /// `leading` is the language of the text already in the app, for punctuation width and context.
-    public func decode(keys: [Character], constraints: [Constraint] = [], leading: Segment.Kind = .other) -> [Segment] {
+    /// `startsLine` says nothing stands before these keys on their line.
+    public func decode(keys: [Character], constraints: [Constraint] = [], leading: Segment.Kind = .other,
+                       startsLine: Bool = true) -> [Segment] {
         let n = keys.count
         guard n > 0 else { return [] }
         let kinds = 3   // language context: chinese, english, none
@@ -156,7 +158,7 @@ public final class Decoder {
                 let previous = Segment.Kind(rawValue: state.context)!
                 if edgesFor[state.context] == nil {
                     var list: [Int32] = []
-                    for edge in edges(from: i, keys: keys, spans: spans, context: previous, fixedAt: fixedAt) {
+                    for edge in edges(from: i, keys: keys, spans: spans, context: previous, fixedAt: fixedAt, startsLine: startsLine) {
                         edgeStore.append(edge)
                         list.append(Int32(edgeStore.count - 1))
                     }
@@ -443,7 +445,8 @@ public final class Decoder {
         return result
     }
 
-    private func edges(from i: Int, keys: [Character], spans: [[Span]], context: Segment.Kind, fixedAt: [Constraint?]) -> [Edge] {
+    private func edges(from i: Int, keys: [Character], spans: [[Span]], context: Segment.Kind, fixedAt: [Constraint?],
+                       startsLine: Bool) -> [Edge] {
         if let fixed = fixedAt[i], case .text(let text, let kind) = fixed.fix {
             guard fixed.range.lowerBound == i else { return [] }
             return [Edge(end: fixed.range.upperBound, kind: kind, text: text, cost: 0, syllableEnds: fixed.syllableEnds.map { $0 + i },
@@ -456,7 +459,7 @@ public final class Decoder {
         tokenEdges(from: i, keys: keys, into: &out)
         numberEdge(from: i, keys: keys, into: &out)
         decimalEdge(from: i, keys: keys, into: &out)
-        listMarkerEdge(from: i, keys: keys, into: &out)
+        listMarkerEdge(from: i, keys: keys, startsLine: startsLine, into: &out)
         literalEdge(from: i, keys: keys, context: context, into: &out)
         return out.filter { edge in
             for k in i..<edge.end where k < fixedAt.count {
@@ -651,15 +654,15 @@ public final class Decoder {
         out.append(Edge(end: j, kind: .english, text: token, cost: costs.joinedToken + Float(j - i) * costs.perTokenKey))
     }
 
-    /// "2." typed on its own (start of the text or after a space, then a space or nothing) is a list number,
-    /// not ㄉㄡ. A tone key or letters after the dot keep the Zhuyin reading: "2.4" is still 豆.
-    private func listMarkerEdge(from i: Int, keys: [Character], into out: inout [Edge]) {
+    /// "2." then a space or nothing can be a list number. Where it can also be a character (ㄉㄡ, 都) it is one
+    /// only at the start of a line. A tone key or letters after the dot keep the Zhuyin reading: "2.4" is 豆.
+    private func listMarkerEdge(from i: Int, keys: [Character], startsLine: Bool, into out: inout [Edge]) {
         guard keys[i].isASCII, keys[i].isNumber, i + 1 < keys.count, keys[i + 1] == ".",
               i == 0 || keys[i - 1] == " ",
               i + 2 == keys.count || keys[i + 2] == " " else { return }
-        // "2." and a space that ends the typing is the first-tone syllable ㄉㄡ (都) when a character has that
-        // sound: only text that follows the space makes it a list number.
-        if i + 3 == keys.count, keys[i + 2] == " ", bestCharacterAnyTone(Array(keys[i...(i + 1)])) != nil { return }
+        // At the start of a line "2. " with nothing after it is still 都: text after the space makes it a list.
+        let listPosition = i == 0 && startsLine && !(i + 3 == keys.count && keys[i + 2] == " ")
+        if !listPosition, bestCharacterAnyTone(Array(keys[i...(i + 1)])) != nil { return }
         out.append(Edge(end: i + 2, kind: .other, text: String(keys[i...(i + 1)]), cost: costs.listMarker, keepsLanguage: true))
     }
 

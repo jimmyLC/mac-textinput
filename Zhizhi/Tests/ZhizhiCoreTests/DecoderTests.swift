@@ -104,7 +104,9 @@ final class DecoderTests: XCTestCase {
         XCTAssertEqual(text("2. "), "都", "first-tone ㄉㄡ ends the typing: it is 都, not a list number")
         XCTAssertEqual(text("2. su3"), "2. 你", "text after the space makes it a list number")
         XCTAssertEqual(text("3. "), "3. ")
-        XCTAssertEqual(text("su3cl3 2. su3"), "你好 2. 你")
+        XCTAssertEqual(decoder.render(decoder.decode(keys: Array("su3cl3 1. su3"), startsLine: false)), "你好 1. 你",
+                       "a number with no character to type stays a number")
+        XCTAssertEqual(text("su3cl3 2. su3"), "你好 都你", "in the middle of a line it is always 都")
         XCTAssertEqual(kinds("2.4"), [.chinese], "ㄉㄡˋ stays Zhuyin")
         XCTAssertEqual(text("5. ai4"), "週末", "ㄓㄡ followed by more syllables is still a word")
     }

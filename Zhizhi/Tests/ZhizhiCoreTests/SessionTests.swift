@@ -154,6 +154,24 @@ final class SessionTests: XCTestCase {
         session.setPreviousCharacter("好")
         XCTAssertEqual(type("<").commit, "，")
     }
+    func testListNumberOnlyAtTheStartOfALine() {
+        session.setPreviousCharacter("\n")
+        type("2. su3")
+        press(.enter)
+        XCTAssertEqual(committed, "2. 你")
+    }
+    func testMidLineDouIsNeverAListNumber() {
+        session.setPreviousCharacter("好")
+        type("2. su3")
+        press(.enter)
+        XCTAssertEqual(committed, "都你")
+    }
+    func testUnknownCaretTextReadsAsMidLine() {
+        session.setPreviousCharacter(nil)
+        type("2. su3")
+        press(.enter)
+        XCTAssertEqual(committed, "都你")
+    }
     func testFlushCommits() {
         type("su3cl3")
         XCTAssertEqual(session.flush(), "你好")
